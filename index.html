@@ -222,6 +222,12 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',-apple-system,s
       <table class="tbl" id="fin-table"></table>
     </div>
   </div>
+  <div class="cg cg1">
+    <div class="cc">
+      <div class="cch"><div><div class="cct">📦 재고 현황</div><div class="ccd">보관처별 입고 · 출고 · 재고 잔량</div></div></div>
+      <table class="tbl" id="fin-inventory"></table>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ CONTENT ═══ -->
@@ -367,8 +373,7 @@ const tk={color:'#8892a4',font:{size:11}};
 //  STATE
 // ═══════════════════════════════════════════
 const S={
-  dataByCountry:{},  // {country: {byMonth, snsByPlat, adByPlat, channelTraffic}}
-  byWeek:{},         // {weekLabel: {month, revenue, orderCount, impressions, clicks, adCost}}
+  dataByCountry:{},  // {country: {byMonth, snsByPlat, adByPlat, adByPlatChan, channelTraffic, byWeek, inventory}}
   allCountries:[],
   activeCountries: new Set(), // empty = all
   activeMonths:{overview:'all',finance:'all',content:'all',marketing:'all',weekly:'all'},
@@ -424,8 +429,8 @@ function mergeObj(dst,src){for(const k of Object.keys(dst)){dst[k]=(dst[k]||0)+(
 const mk=(o,k,fn)=>{if(!o[k])o[k]=fn();return o[k];};
 
 function processData(rows){
-  const COL={activity:3,country:4,platform:5,salesChannel:6,revenue:10,orderCount:11,refund:12,trafficFinal:16,snsTraffic:25,snsFollower:26,impressions:31,clicks:32,attrSales:33,saves:34,likes:35,month:39,week:40,adCost:44,sprayedCost:45,productCost:46,channelFee:47,shipping:48,logistics:49,outsourcing:50,influencer:51,misc:52,solution:53};
-  S.dataByCountry={};S.byWeek={};
+  const COL={activity:3,country:4,platform:5,salesChannel:6,stockChannel:7,revenue:10,orderCount:11,refund:12,trafficFinal:16,inbound:23,outbound:24,snsTraffic:25,snsFollower:26,impressions:31,clicks:32,attrSales:33,saves:34,likes:35,month:39,week:40,adCost:44,sprayedCost:45,productCost:46,channelFee:47,shipping:48,logistics:49,outsourcing:50,influencer:51,misc:52,solution:53};
+  S.dataByCountry={};
 
   for(let i=1;i<rows.length;i++){
     const r=rows[i];
@@ -437,7 +442,7 @@ function processData(rows){
     const week=r[COL.week]?.trim()||'';
     if(!mon) continue;
 
-    const dc=mk(S.dataByCountry,ctr,()=>({byMonth:{},snsByPlat:{},adByPlat:{},adByPlatChan:{},channelTraffic:{}}));
+    const dc=mk(S.dataByCountry,ctr,()=>({byMonth:{},snsByPlat:{},adByPlat:{},adByPlatChan:{},channelTraffic:{},byWeek:{},inventory:{}}));
 
     // byMonth
     const m=mk(dc.byMonth,mon,zeroM);
@@ -482,12 +487,20 @@ function processData(rows){
       cm.revenue+=toNum(r[COL.revenue]);cm.orderCount+=toNum(r[COL.orderCount]);
       cm.trafficFinal+=toNum(r[COL.trafficFinal]);
     }
-    // Weekly
+    // Weekly (per-country so country filter works)
     if(week){
-      const wk=mk(S.byWeek,week,()=>({month:mon,revenue:0,orderCount:0,impressions:0,clicks:0,adCost:0}));
+      const wk=mk(dc.byWeek,week,()=>({month:mon,revenue:0,orderCount:0,impressions:0,clicks:0,adCost:0}));
       wk.revenue+=toNum(r[COL.revenue]);wk.orderCount+=toNum(r[COL.orderCount]);
       wk.impressions+=toNum(r[COL.impressions]);wk.clicks+=toNum(r[COL.clicks]);
       wk.adCost+=adC;
+    }
+    // Inventory by 보관처 (stockChannel)
+    const stk=r[COL.stockChannel]?.trim()||'';
+    const inb=toNum(r[COL.inbound]),outb=toNum(r[COL.outbound]);
+    if(stk&&(inb||outb)){
+      const inv=mk(dc.inventory,stk,()=>({}));
+      const im=mk(inv,mon,()=>({inbound:0,outbound:0}));
+      im.inbound+=inb;im.outbound+=outb;
     }
   }
   S.allCountries=Object.keys(S.dataByCountry).filter(c=>c!=='ALL').sort();
@@ -500,7 +513,7 @@ function processData(rows){
 function getActive(){return S.activeCountries.size===0?S.allCountries:[...S.activeCountries];}
 
 function mergeCountries(){
-  const res={byMonth:{},snsByPlat:{},adByPlat:{},adByPlatChan:{},channelTraffic:{}};
+  const res={byMonth:{},snsByPlat:{},adByPlat:{},adByPlatChan:{},channelTraffic:{},byWeek:{},inventory:{}};
   for(const c of getActive()){
     const d=S.dataByCountry[c];if(!d) continue;
     // byMonth
@@ -531,6 +544,20 @@ function mergeCountries(){
         for(const[m,v] of Object.entries(mdata)){
           const dst=mk(mk(mk(res.adByPlatChan,p,()=>({})),ch,()=>({})),m,zeroA);mergeObj(dst,v);
         }
+      }
+    }
+    // byWeek (per-country → respects country filter)
+    for(const[w,wdata] of Object.entries(d.byWeek||{})){
+      if(!res.byWeek[w]) res.byWeek[w]={month:wdata.month,revenue:0,orderCount:0,impressions:0,clicks:0,adCost:0};
+      const dst=res.byWeek[w];
+      dst.revenue+=wdata.revenue;dst.orderCount+=wdata.orderCount;
+      dst.impressions+=wdata.impressions;dst.clicks+=wdata.clicks;dst.adCost+=wdata.adCost;
+    }
+    // inventory (보관처별)
+    for(const[stk,mdata] of Object.entries(d.inventory||{})){
+      for(const[m,v] of Object.entries(mdata)){
+        const dst=mk(mk(res.inventory,stk,()=>({})),m,()=>({inbound:0,outbound:0}));
+        dst.inbound+=v.inbound;dst.outbound+=v.outbound;
       }
     }
   }
@@ -580,7 +607,7 @@ function filterMonth(el){
 }
 function rebuildPanel(p){
   if(p==='overview') buildOv();
-  if(p==='finance') buildFin();
+  if(p==='finance'){buildFin();buildInventory();}
   if(p==='content') buildCnt();
   if(p==='marketing') buildMkt();
   if(p==='weekly') buildWk();
@@ -806,6 +833,57 @@ function buildFin(){
 }
 
 // ═══════════════════════════════════════════
+//  BUILD INVENTORY (재고 현황)
+// ═══════════════════════════════════════════
+function buildInventory(){
+  const{inventory}=mergeCountries();
+  const storeList=Object.keys(inventory).sort();
+  const el=document.getElementById('fin-inventory');
+  if(!el) return;
+  if(storeList.length===0){
+    el.innerHTML='<tbody><tr><td colspan="10" style="text-align:center;color:var(--mu);padding:24px">재고 데이터 없음 (시트의 연계 재고채널, 입고수, 출고수 컬럼 확인)</td></tr></tbody>';
+    return;
+  }
+  // Collect all months that appear in inventory data
+  const moSet=new Set();
+  storeList.forEach(s=>Object.keys(inventory[s]).forEach(m=>moSet.add(m)));
+  const months=[...moSet].sort((a,b)=>MO.indexOf(a)-MO.indexOf(b));
+
+  let html=`<thead><tr><th>보관처</th>`;
+  months.forEach(m=>{html+=`<th class="tr" colspan="2" style="text-align:center;border-left:1px solid var(--bd)">${m}</th>`;});
+  html+=`<th class="tr" style="border-left:1px solid var(--bd)">총 입고</th><th class="tr">총 출고</th><th class="tr">재고 잔량</th></tr>`;
+  html+=`<tr><th></th>`;
+  months.forEach(()=>{html+=`<th class="tr" style="font-size:10px;color:var(--gn);border-left:1px solid var(--bd)">입고</th><th class="tr" style="font-size:10px;color:var(--rd)">출고</th>`;});
+  html+=`<th></th><th></th><th></th></tr></thead><tbody>`;
+
+  let grandIn=0,grandOut=0;
+  storeList.forEach(stk=>{
+    const mdata=inventory[stk];
+    const totIn=months.reduce((s,m)=>s+(mdata[m]?.inbound||0),0);
+    const totOut=months.reduce((s,m)=>s+(mdata[m]?.outbound||0),0);
+    const remain=totIn-totOut;
+    const remCol=remain>0?'var(--gn)':remain<0?'var(--rd)':'var(--mu)';
+    grandIn+=totIn;grandOut+=totOut;
+    html+=`<tr><td style="font-weight:600">${stk}</td>`;
+    months.forEach(m=>{
+      const inb=mdata[m]?.inbound||0,outb=mdata[m]?.outbound||0;
+      html+=`<td class="tr" style="border-left:1px solid var(--bd);color:var(--gn)">${inb>0?inb.toLocaleString():'—'}</td><td class="tr" style="color:var(--rd)">${outb>0?outb.toLocaleString():'—'}</td>`;
+    });
+    html+=`<td class="tr" style="border-left:1px solid var(--bd);color:var(--gn);font-weight:600">${totIn.toLocaleString()}</td><td class="tr" style="color:var(--rd);font-weight:600">${totOut.toLocaleString()}</td><td class="tr" style="color:${remCol};font-weight:700">${remain.toLocaleString()}</td></tr>`;
+  });
+  const grandRemain=grandIn-grandOut;
+  const gCol=grandRemain>0?'var(--gn)':grandRemain<0?'var(--rd)':'var(--mu)';
+  html+=`<tr style="font-weight:800;border-top:2px solid var(--bd)"><td>📊 합계</td>`;
+  months.forEach(m=>{
+    const inSum=storeList.reduce((s,stk)=>s+(inventory[stk][m]?.inbound||0),0);
+    const outSum=storeList.reduce((s,stk)=>s+(inventory[stk][m]?.outbound||0),0);
+    html+=`<td class="tr" style="border-left:1px solid var(--bd);color:var(--gn)">${inSum>0?inSum.toLocaleString():'—'}</td><td class="tr" style="color:var(--rd)">${outSum>0?outSum.toLocaleString():'—'}</td>`;
+  });
+  html+=`<td class="tr" style="border-left:1px solid var(--bd);color:var(--gn)">${grandIn.toLocaleString()}</td><td class="tr" style="color:var(--rd)">${grandOut.toLocaleString()}</td><td class="tr" style="color:${gCol}">${grandRemain.toLocaleString()}</td></tr></tbody>`;
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════
 //  BUILD CONTENT
 // ═══════════════════════════════════════════
 function buildCnt(){
@@ -956,15 +1034,15 @@ function toggleMktPlat(p,el){
 //  BUILD WEEKLY
 // ═══════════════════════════════════════════
 function buildWk(){
-  const{byMonth}=mergeCountries();
+  const{byMonth,byWeek}=mergeCountries();
   const activeMon=S.activeMonths['weekly']||'all';
-  const weeks=Object.keys(S.byWeek).sort();
-  const filtW=activeMon==='all'?weeks:weeks.filter(w=>S.byWeek[w]?.month===activeMon);
+  const weeks=Object.keys(byWeek).sort();
+  const filtW=activeMon==='all'?weeks:weeks.filter(w=>byWeek[w]?.month===activeMon);
 
-  const totR=filtW.reduce((s,w)=>s+(S.byWeek[w]?.revenue||0),0);
-  const totA=filtW.reduce((s,w)=>s+(S.byWeek[w]?.adCost||0),0);
-  const totI=filtW.reduce((s,w)=>s+(S.byWeek[w]?.impressions||0),0);
-  const totC=filtW.reduce((s,w)=>s+(S.byWeek[w]?.clicks||0),0);
+  const totR=filtW.reduce((s,w)=>s+(byWeek[w]?.revenue||0),0);
+  const totA=filtW.reduce((s,w)=>s+(byWeek[w]?.adCost||0),0);
+  const totI=filtW.reduce((s,w)=>s+(byWeek[w]?.impressions||0),0);
+  const totC=filtW.reduce((s,w)=>s+(byWeek[w]?.clicks||0),0);
   document.getElementById('wk-kpi').innerHTML=
     kpi('기간 매출',fmtW(totR),filtW.length+'주','','','💵','var(--gn)')+
     kpi('기간 광고비',fmtW(totA),filtW.length+'주','','','📣','var(--yw)')+
@@ -975,26 +1053,26 @@ function buildWk(){
 
   // Short labels
   const wkLabels=filtW.map(w=>w.replace(/week(\d+).*/,'W$1'));
-  const wkColors=filtW.map(w=>{const m=S.byWeek[w]?.month;const mo=MO.indexOf(m);return['rgba(108,127,255,.75)','rgba(255,107,157,.75)','rgba(74,222,128,.75)'][mo%3]||'rgba(108,127,255,.75)';});
+  const wkColors=filtW.map(w=>{const m=byWeek[w]?.month;const mo=MO.indexOf(m);return['rgba(108,127,255,.75)','rgba(255,107,157,.75)','rgba(74,222,128,.75)'][mo%3]||'rgba(108,127,255,.75)';});
 
-  const rvChart=mkC('wk-rev',{type:'line',data:{labels:wkLabels,datasets:[{label:'매출',data:filtW.map(w=>fmtM(S.byWeek[w]?.revenue||0)),borderColor:'rgba(74,222,128,1)',backgroundColor:'rgba(74,222,128,.1)',fill:true,tension:.4,pointRadius:4}]},
+  const rvChart=mkC('wk-rev',{type:'line',data:{labels:wkLabels,datasets:[{label:'매출',data:filtW.map(w=>fmtM(byWeek[w]?.revenue||0)),borderColor:'rgba(74,222,128,1)',backgroundColor:'rgba(74,222,128,.1)',fill:true,tension:.4,pointRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{x:{grid:gr,ticks:{...tk,font:{size:10}}},y:{grid:gr,ticks:{...tk,callback:v=>v+'만원'}}}}});
   rvChart._typeToggle=(type)=>{rvChart.config.type=type;if(type==='bar'){rvChart.data.datasets[0].backgroundColor=wkColors;rvChart.data.datasets[0].borderRadius=5;}else{rvChart.data.datasets[0].backgroundColor='rgba(74,222,128,.1)';}rvChart.update();};
 
-  mkC('wk-adcost',{type:'bar',data:{labels:wkLabels,datasets:[{label:'광고비',data:filtW.map(w=>fmtM(S.byWeek[w]?.adCost||0)),backgroundColor:wkColors,borderRadius:5}]},
+  mkC('wk-adcost',{type:'bar',data:{labels:wkLabels,datasets:[{label:'광고비',data:filtW.map(w=>fmtM(byWeek[w]?.adCost||0)),backgroundColor:wkColors,borderRadius:5}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{x:{grid:gr,ticks:{...tk,font:{size:10}}},y:{grid:gr,ticks:{...tk,callback:v=>v+'만원'}}}}});
 
   mkC('wk-imp',{type:'line',data:{labels:wkLabels,datasets:[
-    {label:'노출수',data:filtW.map(w=>S.byWeek[w]?.impressions||0),borderColor:'rgba(108,127,255,1)',backgroundColor:'rgba(108,127,255,.1)',fill:true,tension:.4,pointRadius:3,yAxisID:'y'},
-    {label:'클릭수',data:filtW.map(w=>S.byWeek[w]?.clicks||0),borderColor:'rgba(34,211,238,1)',fill:false,tension:.4,pointRadius:3,yAxisID:'y1'}
+    {label:'노출수',data:filtW.map(w=>byWeek[w]?.impressions||0),borderColor:'rgba(108,127,255,1)',backgroundColor:'rgba(108,127,255,.1)',fill:true,tension:.4,pointRadius:3,yAxisID:'y'},
+    {label:'클릭수',data:filtW.map(w=>byWeek[w]?.clicks||0),borderColor:'rgba(34,211,238,1)',fill:false,tension:.4,pointRadius:3,yAxisID:'y1'}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},
     scales:{x:{grid:gr,ticks:{...tk,font:{size:10}}},y:{grid:gr,ticks:{...tk,callback:v=>fmtN(v)},position:'left'},y1:{grid:{display:false},ticks:tk,position:'right'}}}});
 
   let tbl=`<thead><tr><th>주차</th><th>월</th><th class="tr">매출</th><th class="tr">광고비</th><th class="tr">노출수</th><th class="tr">클릭수</th><th class="tr">ROAS</th></tr></thead><tbody>`;
   filtW.forEach(w=>{
-    const d=S.byWeek[w];
+    const d=byWeek[w];
     const r=d.adCost>0?Math.round(d.revenue/d.adCost*100):0;
     const rc=r>=100?'rhi':r>=30?'rmd':'rlo';
     const shortW=w.replace(/week(\d+)\s*\(([^)]+)\)/,'W$1 ($2)');
@@ -1089,18 +1167,19 @@ async function loadData(){
     const res=await fetch(url,{credentials:'include'});
     if(!res.ok) throw new Error('fetch fail');
     const csv=await res.text();
+    // ✅ 성공 시 localStorage에 저장 (다음 오프라인 접속 때 사용)
+    const now=new Date();
+    localStorage.setItem('sooniko_csv',csv);
+    localStorage.setItem('sooniko_csv_time',now.toISOString());
     processData(parseCSV(csv));
     S.activeCountries.clear();
     S.allCountries.forEach(c=>S.activeCountries.add(c));
-    const now=new Date();
-    document.getElementById('data-time').textContent=`${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')} 기준`;
+    document.getElementById('data-time').textContent=`${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')} 실시간`;
     document.querySelector('.sdot').style.background='var(--gn)';
   }catch(e){
     loadStaticFallback();
     S.activeCountries.clear();
     S.allCountries.forEach(c=>S.activeCountries.add(c));
-    document.getElementById('data-time').textContent='캐시 데이터 (로그인 필요)';
-    document.querySelector('.sdot').style.background='var(--yw)';
   }
   document.getElementById('loading').style.display='none';
   buildCountryFilter();
@@ -1108,6 +1187,23 @@ async function loadData(){
 }
 
 function loadStaticFallback(){
+  // 1순위: localStorage에 저장된 마지막 실시간 데이터
+  const cached=localStorage.getItem('sooniko_csv');
+  const cachedTime=localStorage.getItem('sooniko_csv_time');
+  if(cached){
+    processData(parseCSV(cached));
+    const t=new Date(cachedTime);
+    document.getElementById('data-time').textContent=`${t.getMonth()+1}/${t.getDate()} ${t.getHours()}:${String(t.getMinutes()).padStart(2,'0')} 캐시`;
+    document.querySelector('.sdot').style.background='var(--yw)';
+    return;
+  }
+  // 2순위: 처음 접속 시 캐시가 없을 때만 (새로고침 한 번 하면 이후로는 캐시 사용)
+  document.getElementById('data-time').textContent='초기 데이터 (새로고침으로 최신화)';
+  document.querySelector('.sdot').style.background='var(--rd)';
+  _loadHardcodedFallback();
+}
+
+function _loadHardcodedFallback(){
   const zM=(rev,adC,tot,imp,clk,atr,lik,sav,snT,snF,ord,ref,ou,inf,sh,lo,cf,pc,ms,sl)=>({revenue:rev,adCost:adC,totalCost:tot,impressions:imp,clicks:clk,attrSales:atr,likes:lik,saves:sav,snsTraffic:snT,snsFollower:snF,orderCount:ord,refund:ref,outsourcing:ou,influencer:inf,shipping:sh,logistics:lo,channelFee:cf,productCost:pc,misc:ms,solution:sl});
   S.dataByCountry={
     KR:{
@@ -1126,9 +1222,8 @@ function loadStaticFallback(){
         '12월':zM(0,0,52000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,52000)
       },
       snsByPlat:{
-        INSTAGRAM:{'1월':{impressions:79,likes:0,saves:0,snsTraffic:87,snsFollower:31,count:37},'2월':{impressions:1058,likes:132,saves:0,snsTraffic:185,snsFollower:28,count:40},'3월':{impressions:0,likes:0,saves:0,snsTraffic:81,snsFollower:8,count:29}},
+        INSTAGRAM:{'1월':{impressions:79,likes:0,saves:0,snsTraffic:87,snsFollower:31,count:37},'2월':{impressions:1058,likes:132,saves:0,snsTraffic:185,snsFollower:28,count:40},'3월':{impressions:0,likes:0,saves:0,snsTraffic:18,snsFollower:4,count:16}},
         'X(트위터)':{'1월':{impressions:19931,likes:132,saves:36,snsTraffic:0,snsFollower:0,count:41},'2월':{impressions:1350,likes:13,saves:0,snsTraffic:0,snsFollower:0,count:2}},
-        TIKTOK:{'1월':{impressions:9324,likes:145,saves:7,snsTraffic:0,snsFollower:0,count:17}},
         THREAD:{'1월':{impressions:831,likes:20,saves:0,snsTraffic:0,snsFollower:0,count:3}},
         YOUTUBE:{'2월':{impressions:232,likes:0,saves:0,snsTraffic:0,snsFollower:0,count:2}},
         WADIZ:{'1월':{impressions:0,likes:0,saves:0,snsTraffic:0,snsFollower:0,count:8},'2월':{impressions:0,likes:0,saves:0,snsTraffic:0,snsFollower:0,count:1}}
@@ -1137,11 +1232,32 @@ function loadStaticFallback(){
         META:{'1월':{adCost:1399069,impressions:160772,clicks:4519,attrSales:515100},'2월':{adCost:790204,impressions:59754,clicks:2418,attrSales:65000}},
         WADIZ:{'1월':{adCost:2034758,impressions:62576,clicks:1328,attrSales:2994200},'2월':{adCost:1533085,impressions:92207,clicks:879,attrSales:2184300}}
       },
+      adByPlatChan:{
+        META:{
+          '네이버 스스':{'1월':{adCost:1328627,impressions:155865,clicks:4318,attrSales:515100},'2월':{adCost:613399,impressions:46976,clicks:1816,attrSales:65000}},
+          WADIZ:{'1월':{adCost:70442,impressions:4907,clicks:201,attrSales:0},'2월':{adCost:176805,impressions:12778,clicks:602,attrSales:0}}
+        },
+        WADIZ:{
+          WADIZ:{'1월':{adCost:2034758,impressions:62576,clicks:1328,attrSales:2994200},'2월':{adCost:1533085,impressions:92207,clicks:879,attrSales:2184300}}
+        }
+      },
       channelTraffic:{
         WADIZ:{'1월':{revenue:5770500,orderCount:95,trafficFinal:2627},'2월':{revenue:3033900,orderCount:61,trafficFinal:2223}},
         '네이버 스스':{'1월':{revenue:1332800,orderCount:111,trafficFinal:5620},'2월':{revenue:500000,orderCount:37,trafficFinal:2223},'3월':{revenue:140000,orderCount:6,trafficFinal:84}},
         '오프라인 약국':{'1월':{revenue:230000,orderCount:11,trafficFinal:0},'2월':{revenue:30000,orderCount:1,trafficFinal:0}}
-      }
+      },
+      byWeek:{
+        'week01 (0101-0104)':{month:'1월',revenue:1348000,orderCount:33,impressions:46839,clicks:1434,adCost:520982},
+        'week02 (0105-0111)':{month:'1월',revenue:595100,orderCount:26,impressions:51875,clicks:1363,adCost:420906},
+        'week03 (0112-0118)':{month:'1월',revenue:360000,orderCount:17,impressions:91304,clicks:1611,adCost:917062},
+        'week04 (0119-0125)':{month:'1월',revenue:3372900,orderCount:88,impressions:51392,clicks:943,adCost:914267},
+        'week05 (0126-0201)':{month:'1월',revenue:1937700,orderCount:63,impressions:33591,clicks:632,adCost:744720},
+        'week06 (0202-0208)':{month:'2월',revenue:3054500,orderCount:76,impressions:119470,clicks:1886,adCost:1814869},
+        'week07 (0209-0215)':{month:'2월',revenue:150000,orderCount:9,impressions:21511,clicks:891,adCost:290833},
+        'week08 (0216-0222)':{month:'2월',revenue:0,orderCount:0,impressions:5255,clicks:236,adCost:77606},
+        'week09 (0223-0301)':{month:'2월',revenue:139000,orderCount:6,impressions:3667,clicks:148,adCost:55870}
+      },
+      inventory:{}
     },
     US:{
       byMonth:{
@@ -1159,14 +1275,22 @@ function loadStaticFallback(){
         '12월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,158400)
       },
       snsByPlat:{
-        INSTAGRAM:{'1월':{impressions:0,likes:0,saves:0,snsTraffic:1637,snsFollower:35,count:31}},
+        INSTAGRAM:{'1월':{impressions:0,likes:0,saves:0,snsTraffic:1637,snsFollower:35,count:31},'2월':{impressions:0,likes:0,saves:0,snsTraffic:244,snsFollower:11,count:28},'3월':{impressions:0,likes:0,saves:0,snsTraffic:63,snsFollower:4,count:13}},
         TIKTOK:{'1월':{impressions:9324,likes:145,saves:7,snsTraffic:0,snsFollower:0,count:17}}
       },
       adByPlat:{
         META:{'1월':{adCost:1178892,impressions:63580,clicks:2511,attrSales:28600},'2월':{adCost:556685,impressions:23351,clicks:804,attrSales:114400}},
-        TIKTOK:{'1월':{adCost:1904331,impressions:478534,clicks:25069,attrSales:0}}
+        TIKTOK:{'1월':{adCost:1904331,impressions:478534,clicks:25069,attrSales:0},'2월':{adCost:4792374,impressions:796509,clicks:13036,attrSales:0}}
       },
-      channelTraffic:{AMAZON:{'1월':{revenue:204090,orderCount:6,trafficFinal:16079},'2월':{revenue:319748,orderCount:11,trafficFinal:0},'3월':{revenue:256542,orderCount:6,trafficFinal:0}}}
+      adByPlatChan:{
+        META:{AMAZON:{'1월':{adCost:1178892,impressions:63580,clicks:2511,attrSales:28600},'2월':{adCost:556685,impressions:23351,clicks:804,attrSales:114400}}},
+        TIKTOK:{
+          AMAZON:{'1월':{adCost:1904331,impressions:478534,clicks:25069,attrSales:0},'2월':{adCost:4221003,impressions:791226,clicks:13004,attrSales:0}},
+          'TIKTOK SHOP':{'2월':{adCost:571371,impressions:5283,clicks:32,attrSales:0}}
+        }
+      },
+      channelTraffic:{AMAZON:{'1월':{revenue:204090,orderCount:6,trafficFinal:16079},'2월':{revenue:319748,orderCount:11,trafficFinal:0},'3월':{revenue:256542,orderCount:6,trafficFinal:0}}},
+      byWeek:{},inventory:{}
     },
     AU:{
       byMonth:{
@@ -1174,28 +1298,27 @@ function loadStaticFallback(){
         '2월':zM(434810,4545789,5943909,1411477,0,0,0,0,0,0,14,0,0,0,0,0,0,1398120,0,0)
       },
       snsByPlat:{},
-      adByPlat:{SHOPEEADS:{'1월':{adCost:2913092,impressions:735948,clicks:0,attrSales:0},'2월':{adCost:4545789,impressions:1411477,clicks:0,attrSales:0}}},
-      channelTraffic:{AMAZON:{'1월':{revenue:0,orderCount:0,trafficFinal:441},'2월':{revenue:434810,orderCount:14,trafficFinal:0}}}
+      adByPlat:{
+        AMAZON:{'1월':{adCost:678374,impressions:238429,clicks:447,attrSales:0},'2월':{adCost:2005237,impressions:483282,clicks:980,attrSales:420293}},
+        META:{'1월':{adCost:565837,impressions:53127,clicks:810,attrSales:0},'2월':{adCost:448090,impressions:28050,clicks:950,attrSales:0}},
+        TIKTOK:{'1월':{adCost:1668882,impressions:444392,clicks:14569,attrSales:0},'2월':{adCost:2092462,impressions:900145,clicks:52925,attrSales:0}}
+      },
+      adByPlatChan:{
+        AMAZON:{AMAZON:{'1월':{adCost:678374,impressions:238429,clicks:447,attrSales:0},'2월':{adCost:2005237,impressions:483282,clicks:980,attrSales:420293}}},
+        META:{AMAZON:{'1월':{adCost:565837,impressions:53127,clicks:810,attrSales:0},'2월':{adCost:448090,impressions:28050,clicks:950,attrSales:0}}},
+        TIKTOK:{AMAZON:{'1월':{adCost:1668882,impressions:444392,clicks:14569,attrSales:0},'2월':{adCost:2092462,impressions:900145,clicks:52925,attrSales:0}}}
+      },
+      channelTraffic:{AMAZON:{'1월':{revenue:0,orderCount:0,trafficFinal:441},'2월':{revenue:434810,orderCount:14,trafficFinal:0}}},
+      byWeek:{},inventory:{}
     },
-    CA:{byMonth:{'1월':zM(52500,108873,145459,75928,0,0,0,0,0,0,2,0,0,0,0,0,0,36586,0,0),'2월':zM(0,10219,10219,985,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{AMAZON:{'1월':{adCost:108873,impressions:75928,clicks:0,attrSales:0}}},channelTraffic:{AMAZON:{'1월':{revenue:52500,orderCount:2,trafficFinal:153}}}},
-    MX:{byMonth:{'1월':zM(0,558,16916,326,0,0,0,0,0,0,0,0,0,0,0,0,0,16358,0,0),'2월':zM(0,0,0,200,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),'3월':zM(0,0,0,118,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{},channelTraffic:{}},
-    SG:{byMonth:{'1월':zM(0,9853,9853,3716,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),'2월':zM(0,78579,78579,4853,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{META:{'1월':{adCost:9853,impressions:3716,clicks:0,attrSales:0},'2월':{adCost:78579,impressions:4853,clicks:0,attrSales:0}}},channelTraffic:{}},
-    TW:{byMonth:{'2월':zM(0,244473,244473,34603,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{META:{'2월':{adCost:244473,impressions:34603,clicks:0,attrSales:0}}},channelTraffic:{}},
-    WW:{byMonth:{'2월':zM(0,287616,287616,122652,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{META:{'2월':{adCost:287616,impressions:122652,clicks:0,attrSales:0}}},channelTraffic:{}}
+    CA:{byMonth:{'1월':zM(52500,108873,145459,75928,0,0,0,0,0,0,2,0,0,0,0,0,0,36586,0,0),'2월':zM(0,10219,10219,985,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{AMAZON:{'1월':{adCost:108873,impressions:75928,clicks:164,attrSales:53500},'2월':{adCost:10219,impressions:985,clicks:58,attrSales:0}}},adByPlatChan:{AMAZON:{AMAZON:{'1월':{adCost:108873,impressions:75928,clicks:164,attrSales:53500},'2월':{adCost:10219,impressions:985,clicks:58,attrSales:0}}}},channelTraffic:{AMAZON:{'1월':{revenue:52500,orderCount:2,trafficFinal:153}}},byWeek:{},inventory:{}},
+    MX:{byMonth:{'1월':zM(0,558,16916,326,0,0,0,0,0,0,0,0,0,0,0,0,0,16358,0,0),'2월':zM(0,0,0,200,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),'3월':zM(0,0,0,118,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{SHOPEEADS:{'1월':{adCost:558,impressions:326,clicks:1,attrSales:0},'2월':{adCost:0,impressions:200,clicks:0,attrSales:0},'3월':{adCost:0,impressions:118,clicks:0,attrSales:0}}},adByPlatChan:{SHOPEEADS:{SHOPEE:{'1월':{adCost:558,impressions:326,clicks:1,attrSales:0},'2월':{adCost:0,impressions:200,clicks:0,attrSales:0},'3월':{adCost:0,impressions:118,clicks:0,attrSales:0}}}},channelTraffic:{},byWeek:{},inventory:{}},
+    SG:{byMonth:{'1월':zM(0,9853,9853,3716,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),'2월':zM(0,78579,78579,4853,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{SHOPEEADS:{'1월':{adCost:9853,impressions:3716,clicks:16,attrSales:0},'2월':{adCost:78579,impressions:4853,clicks:28,attrSales:0}}},adByPlatChan:{SHOPEEADS:{SHOPEE:{'1월':{adCost:9853,impressions:3716,clicks:16,attrSales:0},'2월':{adCost:78579,impressions:4853,clicks:28,attrSales:0}}}},channelTraffic:{},byWeek:{},inventory:{}},
+    TW:{byMonth:{'2월':zM(0,244473,244473,34603,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{META:{'2월':{adCost:244473,impressions:34603,clicks:521,attrSales:0}}},adByPlatChan:{META:{SHOPEE:{'2월':{adCost:244473,impressions:34603,clicks:521,attrSales:0}}}},channelTraffic:{},byWeek:{},inventory:{}},
+    WW:{byMonth:{'2월':zM(0,287616,287616,122652,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{TIKTOK:{'2월':{adCost:287616,impressions:122652,clicks:4166,attrSales:0}}},adByPlatChan:{TIKTOK:{'자사몰':{'2월':{adCost:287616,impressions:122652,clicks:4166,attrSales:0}}}},channelTraffic:{},byWeek:{},inventory:{}}
   };
   S.allCountries=['KR','US','AU','CA','MX','SG','TW','WW'];
   S.allCountries.forEach(c=>S.activeCountries.add(c));
-  S.byWeek={
-    'week01 (0101-0104)':{month:'1월',revenue:1348000,orderCount:33,impressions:46839,clicks:1434,adCost:520982},
-    'week02 (0105-0111)':{month:'1월',revenue:595100,orderCount:26,impressions:51875,clicks:1363,adCost:420906},
-    'week03 (0112-0118)':{month:'1월',revenue:360000,orderCount:17,impressions:91304,clicks:1611,adCost:917062},
-    'week04 (0119-0125)':{month:'1월',revenue:3372900,orderCount:88,impressions:51392,clicks:943,adCost:914267},
-    'week05 (0126-0201)':{month:'1월',revenue:1937700,orderCount:63,impressions:33591,clicks:632,adCost:744720},
-    'week06 (0202-0208)':{month:'2월',revenue:3054500,orderCount:76,impressions:119470,clicks:1886,adCost:1814869},
-    'week07 (0209-0215)':{month:'2월',revenue:150000,orderCount:9,impressions:21511,clicks:891,adCost:290833},
-    'week08 (0216-0222)':{month:'2월',revenue:0,orderCount:0,impressions:5255,clicks:236,adCost:77606},
-    'week09 (0223-0301)':{month:'2월',revenue:139000,orderCount:6,impressions:3667,clicks:148,adCost:55870}
-  };
 }
 
 
