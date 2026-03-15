@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOONIKO 팀별 대시보드 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0f1117;--sf:#1a1d2e;--sf2:#242740;--bd:#2e3354;--tx:#e2e8f0;--mu:#8892a4;
+  --ac:#6c7fff;--pk:#ff6b9d;--gn:#4ade80;--rd:#f87171;--yw:#fbbf24;--pu:#a78bfa;
+  --cy:#22d3ee;--or:#fb923c;--tl:#2dd4bf;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',-apple-system,sans-serif;min-height:100vh;}
+
+/* HEADER */
+.hdr{background:var(--sf);border-bottom:1px solid var(--bd);padding:13px 26px;display:flex;align-items:center;justify-content:space-between;}
+.hdr-l{display:flex;align-items:center;gap:12px;}
+.logo{width:34px;height:34px;background:linear-gradient(135deg,var(--ac),var(--pk));border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex-shrink:0;}
+.hdr h1{font-size:16px;font-weight:700;}
+.hdr-sub{font-size:10px;color:var(--mu);margin-top:1px;}
+.hdr-r{display:flex;align-items:center;gap:8px;}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--gn);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.35;}}
+.sbadge{display:flex;align-items:center;gap:5px;background:var(--sf2);border:1px solid var(--bd);border-radius:20px;padding:5px 11px;font-size:11px;color:var(--mu);}
+.rbtn{background:rgba(108,127,255,.15);border:1px solid rgba(108,127,255,.3);color:var(--ac);padding:6px 13px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;}
+.rbtn:hover{background:rgba(108,127,255,.28);}
+
+/* COUNTRY FILTER (global) */
+.country-bar{background:var(--sf);border-bottom:1px solid var(--bd);padding:8px 26px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.country-label{font-size:10px;color:var(--mu);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-right:4px;white-space:nowrap;}
+.cpill{display:inline-flex;align-items:center;gap:5px;background:var(--sf2);border:1px solid var(--bd);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--mu);cursor:pointer;transition:all .2s;}
+.cpill:hover{color:var(--tx);}
+.cpill.on{border-color:var(--cc,var(--ac));color:var(--cc,var(--ac));background:rgba(108,127,255,.1);}
+.cpill.on-colored{border-color:var(--cc);color:var(--cc);background-color:color-mix(in srgb,var(--cc) 12%,transparent);}
+.cflag{font-size:12px;}
+.ccount{font-size:9px;background:rgba(108,127,255,.2);color:var(--ac);padding:1px 5px;border-radius:10px;font-weight:700;}
+
+/* TABS */
+.tabs{background:var(--sf);border-bottom:1px solid var(--bd);padding:0 26px;display:flex;gap:2px;overflow-x:auto;}
+.tab{padding:12px 18px;font-size:13px;font-weight:500;color:var(--mu);cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:6px;}
+.tab:hover{color:var(--tx);}
+.tab.active{color:var(--tx);border-bottom-color:var(--ac);font-weight:700;}
+
+/* PANEL */
+.panel{display:none;padding:24px;}
+.panel.active{display:block;}
+
+/* MONTH FILTER */
+.fbar{display:flex;align-items:center;gap:7px;margin-bottom:20px;flex-wrap:wrap;}
+.flabel{font-size:10px;color:var(--mu);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-right:3px;}
+.pill{background:var(--sf2);border:1px solid var(--bd);border-radius:20px;padding:4px 13px;font-size:12px;font-weight:600;color:var(--mu);cursor:pointer;transition:all .2s;}
+.pill:hover{color:var(--tx);}
+.pill.on{background:rgba(108,127,255,.12);border-color:var(--ac);color:var(--ac);}
+.fsep{width:1px;height:18px;background:var(--bd);margin:0 3px;}
+.plat-chip{display:inline-flex;align-items:center;gap:4px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer;transition:all .2s;margin:2px;}
+.plat-chip.off{opacity:.3;}
+.pdot{width:7px;height:7px;border-radius:50%;}
+
+/* KPI */
+.kg{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:13px;margin-bottom:22px;}
+.kc{background:var(--sf);border:1px solid var(--bd);border-radius:13px;padding:16px 18px;position:relative;overflow:hidden;}
+.kbar{position:absolute;top:0;left:0;right:0;height:3px;border-radius:13px 13px 0 0;}
+.klb{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.7px;font-weight:700;margin-bottom:7px;}
+.kv{font-size:22px;font-weight:800;line-height:1;margin-bottom:4px;}
+.ks{font-size:11px;color:var(--mu);}
+.kch{font-size:11px;font-weight:700;margin-top:4px;}
+.up{color:var(--gn);} .dn{color:var(--rd);} .neu{color:var(--mu);}
+.kico{position:absolute;top:13px;right:13px;font-size:18px;opacity:.45;}
+
+/* CHART GRID */
+.cg{display:grid;gap:16px;margin-bottom:16px;}
+.cg2{grid-template-columns:1fr 1fr;}
+.cg3{grid-template-columns:1fr 1fr 1fr;}
+.cg12{grid-template-columns:1fr 2fr;}
+.cg21{grid-template-columns:2fr 1fr;}
+.cg1{grid-template-columns:1fr;}
+
+.cc{background:var(--sf);border:1px solid var(--bd);border-radius:13px;padding:18px;}
+.cch{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}
+.cct{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;}
+.ccd{font-size:11px;color:var(--mu);margin-top:2px;}
+.cca{display:flex;gap:5px;}
+.ccb{background:var(--sf2);border:1px solid var(--bd);color:var(--mu);padding:3px 9px;border-radius:5px;font-size:11px;cursor:pointer;transition:all .2s;}
+.ccb.active,.ccb:hover{background:rgba(108,127,255,.15);border-color:var(--ac);color:var(--ac);}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{text-align:left;padding:8px 11px;color:var(--mu);font-size:10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bd);font-weight:700;}
+.tbl td{padding:10px 11px;border-bottom:1px solid var(--bd);}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(255,255,255,.018);}
+.tr{text-align:right;font-variant-numeric:tabular-nums;}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+.b-ig{background:rgba(236,72,153,.2);color:#f472b6;}
+.b-tk{background:rgba(34,211,238,.2);color:var(--cy);}
+.b-tw{background:rgba(148,163,184,.2);color:#94a3b8;}
+.b-th{background:rgba(251,146,60,.2);color:var(--or);}
+.b-yt{background:rgba(248,113,113,.2);color:var(--rd);}
+.b-wz{background:rgba(251,191,36,.2);color:var(--yw);}
+.b-nv{background:rgba(74,222,128,.2);color:var(--gn);}
+.b-am{background:rgba(108,127,255,.2);color:var(--ac);}
+.b-of{background:rgba(167,139,250,.2);color:var(--pu);}
+.b-kr{background:rgba(255,107,157,.2);color:var(--pk);}
+.b-us{background:rgba(108,127,255,.2);color:var(--ac);}
+.b-ww{background:rgba(34,211,238,.2);color:var(--cy);}
+.roas{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+.rhi{background:rgba(74,222,128,.15);color:var(--gn);}
+.rmd{background:rgba(251,191,36,.15);color:var(--yw);}
+.rlo{background:rgba(248,113,113,.15);color:var(--rd);}
+
+/* NOTICE */
+.note{background:rgba(108,127,255,.07);border:1px solid rgba(108,127,255,.18);border-radius:9px;padding:10px 14px;font-size:11px;color:var(--mu);margin-bottom:20px;display:flex;align-items:center;gap:8px;}
+.note.warn{background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.2);color:var(--yw);}
+
+/* LOADING */
+#loading{position:fixed;inset:0;background:rgba(15,17,23,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:14px;}
+#loading h2{font-size:15px;font-weight:600;}
+.spin{width:34px;height:34px;border:3px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:sp .8s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg);}}
+
+/* SECTION DIVIDER */
+.sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--mu);border-bottom:1px solid var(--bd);padding-bottom:8px;margin-bottom:14px;}
+
+@media(max-width:900px){
+  .cg2,.cg3,.cg12,.cg21{grid-template-columns:1fr;}
+  .panel{padding:16px;}
+}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spin"></div><h2>시트에서 최신 데이터 가져오는 중…</h2><p style="font-size:11px;color:var(--mu)">Google 계정 로그인 필요</p></div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-l">
+    <div class="logo">S</div>
+    <div><h1>SOONIKO 데이터 대시보드 2026</h1><div class="hdr-sub">RD 시트 실시간 연동</div></div>
+  </div>
+  <div class="hdr-r">
+    <div class="sbadge"><div class="sdot"></div><span id="data-time">로딩 중…</span></div>
+    <button class="rbtn" onclick="loadData()">↻ 새로고침</button>
+  </div>
+</div>
+
+<!-- GLOBAL COUNTRY FILTER -->
+<div class="country-bar">
+  <span class="country-label">🌍 국가 필터</span>
+  <div id="country-pills"></div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="showTab('overview',this)">📊 전체 Overview</div>
+  <div class="tab" onclick="showTab('finance',this)">💰 재무팀</div>
+  <div class="tab" onclick="showTab('content',this)">📱 콘텐츠팀</div>
+  <div class="tab" onclick="showTab('marketing',this)">📣 마케팅팀</div>
+  <div class="tab" onclick="showTab('weekly',this)">📅 주차별 트렌드</div>
+</div>
+
+<!-- ═══ OVERVIEW ═══ -->
+<div id="panel-overview" class="panel active">
+  <div class="fbar">
+    <span class="flabel">월</span>
+    <div class="pill on" data-panel="overview" data-month="all" onclick="filterMonth(this)">전체</div>
+    <div class="pill" data-panel="overview" data-month="1월" onclick="filterMonth(this)">1월</div>
+    <div class="pill" data-panel="overview" data-month="2월" onclick="filterMonth(this)">2월</div>
+    <div class="pill" data-panel="overview" data-month="3월" onclick="filterMonth(this)">3월</div>
+  </div>
+  <div class="kg" id="ov-kpi"></div>
+  <div id="ov-country-breakdown"></div>
+  <div class="cg cg2">
+    <div class="cc">
+      <div class="cch"><div><div class="cct">📊 월별 매출 vs 비용</div><div class="ccd">매출 · 광고비 · 총비용</div></div>
+        <div class="cca"><button class="ccb active" onclick="swType('ov-revcost','bar',this)">막대</button><button class="ccb" onclick="swType('ov-revcost','line',this)">라인</button></div>
+      </div>
+      <div style="position:relative;height:250px"><canvas id="ov-revcost"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="cch"><div><div class="cct">📦 월별 주문 & 노출</div><div class="ccd">주문건수 · 전체 노출수</div></div></div>
+      <div style="position:relative;height:250px"><canvas id="ov-orders"></canvas></div>
+    </div>
+  </div>
+
+  <div class="cg cg2">
+    <div class="cc">
+      <div class="cch"><div><div class="cct">🧮 비용 구성 비중</div><div class="ccd">선택 기간 항목별 지출</div></div></div>
+      <div style="position:relative;height:230px"><canvas id="ov-costpie"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="cch"><div><div class="cct">🛒 채널별 매출 비중</div><div class="ccd">판매채널 누적 매출</div></div></div>
+      <div style="position:relative;height:230px"><canvas id="ov-chanrev"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FINANCE ═══ -->
+<div id="panel-finance" class="panel">
+  <div class="fbar">
+    <span class="flabel">월</span>
+    <div class="pill on" data-panel="finance" data-month="all" onclick="filterMonth(this)">전체</div>
+    <div class="pill" data-panel="finance" data-month="1월" onclick="filterMonth(this)">1월</div>
+    <div class="pill" data-panel="finance" data-month="2월" onclick="filterMonth(this)">2월</div>
+    <div class="pill" data-panel="finance" data-month="3월" onclick="filterMonth(this)">3월</div>
+  </div>
+  <div class="kg" id="fin-kpi"></div>
+  <div class="cg cg2">
+    <div class="cc">
+      <div class="cch"><div><div class="cct">🧮 비용 항목별 구성</div><div class="ccd">선택 기간 지출 비중</div></div>
+        <div class="cca"><button class="ccb active" onclick="swType('fin-pie','doughnut',this)">도넛</button><button class="ccb" onclick="swType('fin-pie','bar',this)">막대</button></div>
+      </div>
+      <div style="position:relative;height:270px"><canvas id="fin-pie"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="cch"><div><div class="cct">📈 월별 매출·비용·마진</div><div class="ccd">마진 = 매출 − 총비용</div></div></div>
+      <div style="position:relative;height:270px"><canvas id="fin-margin"></canvas></div>
+    </div>
+  </div>
+  <div class="cg cg1">
+    <div class="cc">
+      <div class="cch"><div><div class="cct">📋 비용 항목 상세 테이블</div><div class="ccd">항목별 월간 지출 내역</div></div></div>
+      <table class="tbl" id="fin-table"></table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CONTENT ═══ -->
+<div id="panel-content" class="panel">
+  <div class="fbar">
+    <span class="flabel">월</span>
+    <div class="pill on" data-panel="content" data-month="all" onclick="filterMonth(this)">전체</div>
+    <div class="pill" data-panel="content" data-month="1월" onclick="filterMonth(this)">1월</div>
+    <div class="pill" data-panel="content" data-month="2월" onclick="filterMonth(this)">2월</div>
+    <div class="pill" data-panel="content" data-month="3월" onclick="filterMonth(this)">3월</div>
+    <div class="fsep"></div>
+    <span class="flabel">플랫폼</span>
+    <div id="cnt-plat-chips"></div>
+  </div>
+  <div class="kg" id="cnt-kpi"></div>
+  <div class="cg cg2">
+    <div class="cc"><div class="cch"><div><div class="cct">👁️ 플랫폼별 노출수</div><div class="ccd">월별 스택 비교</div></div></div><div style="position:relative;height:260px"><canvas id="cnt-imp"></canvas></div></div>
+    <div class="cc"><div class="cch"><div><div class="cct">❤️ 플랫폼별 참여 지표</div><div class="ccd">좋아요 · 저장/공유 · 콘텐츠 수</div></div></div><div style="position:relative;height:260px"><canvas id="cnt-engage"></canvas></div></div>
+  </div>
+  <div class="cg cg2">
+    <div class="cc"><div class="cch"><div><div class="cct">🔗 월별 SNS 유입 & 팔로워</div><div class="ccd">채널 → 사이트 유입</div></div></div><div style="position:relative;height:240px"><canvas id="cnt-traffic"></canvas></div></div>
+    <div class="cc"><div class="cch"><div><div class="cct">📋 플랫폼별 성과 요약</div></div></div><table class="tbl" id="cnt-table"></table></div>
+  </div>
+</div>
+
+<!-- ═══ MARKETING ═══ -->
+<div id="panel-marketing" class="panel">
+  <div class="fbar">
+    <span class="flabel">월</span>
+    <div class="pill on" data-panel="marketing" data-month="all" onclick="filterMonth(this)">전체</div>
+    <div class="pill" data-panel="marketing" data-month="1월" onclick="filterMonth(this)">1월</div>
+    <div class="pill" data-panel="marketing" data-month="2월" onclick="filterMonth(this)">2월</div>
+    <div class="fsep"></div>
+    <span class="flabel">플랫폼</span>
+    <div id="mkt-plat-chips"></div>
+  </div>
+  <div class="kg" id="mkt-kpi"></div>
+  <div class="cg cg2">
+    <div class="cc">
+      <div class="cch"><div><div class="cct">💸 플랫폼별 광고비</div><div class="ccd">월별 지출 비교</div></div>
+        <div class="cca"><button class="ccb active" onclick="swType('mkt-adcost','bar',this)">막대</button><button class="ccb" onclick="swType('mkt-adcost','line',this)">라인</button></div>
+      </div>
+      <div style="position:relative;height:260px"><canvas id="mkt-adcost"></canvas></div>
+    </div>
+    <div class="cc"><div class="cch"><div><div class="cct">🎯 플랫폼별 ROAS</div><div class="ccd">기여판매액 ÷ 광고비 (%)</div></div></div><div style="position:relative;height:260px"><canvas id="mkt-roas"></canvas></div></div>
+  </div>
+  <div class="cg cg2">
+    <div class="cc"><div class="cch"><div><div class="cct">🛒 판매채널별 유입 & 매출</div><div class="ccd">채널별 유입수 + 판매액</div></div></div><div style="position:relative;height:250px"><canvas id="mkt-channel"></canvas></div></div>
+    <div class="cc"><div class="cch"><div><div class="cct">🖱️ 플랫폼별 노출 · 클릭</div><div class="ccd">광고 도달 및 클릭 효율</div></div></div><div style="position:relative;height:250px"><canvas id="mkt-clicks"></canvas></div></div>
+  </div>
+  <div class="cg cg1">
+    <div class="cc"><div class="cch"><div><div class="cct">📋 광고 플랫폼 상세 성과</div></div></div><table class="tbl" id="mkt-table"></table></div>
+  </div>
+</div>
+
+<!-- ═══ WEEKLY ═══ -->
+<div id="panel-weekly" class="panel">
+  <div class="fbar">
+    <span class="flabel">월 그룹</span>
+    <div class="pill on" data-panel="weekly" data-month="all" onclick="filterMonth(this)">전체</div>
+    <div class="pill" data-panel="weekly" data-month="1월" onclick="filterMonth(this)">1월</div>
+    <div class="pill" data-panel="weekly" data-month="2월" onclick="filterMonth(this)">2월</div>
+    <div class="pill" data-panel="weekly" data-month="3월" onclick="filterMonth(this)">3월</div>
+  </div>
+  <div class="kg" id="wk-kpi"></div>
+  <div class="cg cg1">
+    <div class="cc">
+      <div class="cch"><div><div class="cct">📈 주차별 매출 추이</div><div class="ccd">주 단위 매출 흐름</div></div>
+        <div class="cca"><button class="ccb active" onclick="swType('wk-rev','line',this)">라인</button><button class="ccb" onclick="swType('wk-rev','bar',this)">막대</button></div>
+      </div>
+      <div style="position:relative;height:250px"><canvas id="wk-rev"></canvas></div>
+    </div>
+  </div>
+  <div class="cg cg2">
+    <div class="cc"><div class="cch"><div><div class="cct">💸 주차별 광고비</div><div class="ccd">주 단위 광고 집행액</div></div></div><div style="position:relative;height:230px"><canvas id="wk-adcost"></canvas></div></div>
+    <div class="cc"><div class="cch"><div><div class="cct">👁️ 주차별 노출 & 클릭</div><div class="ccd">주 단위 광고 도달</div></div></div><div style="position:relative;height:230px"><canvas id="wk-imp"></canvas></div></div>
+  </div>
+  <div class="cg cg1">
+    <div class="cc"><div class="cch"><div><div class="cct">📋 주차별 상세 테이블</div></div></div><table class="tbl" id="wk-table"></table></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════
+const SHEET_ID='1KGeRgCPbC9OHAd-gj8AVXUGZBQ1PLUIxpe6r8gNHCo4';
+const MO=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const COUNTRY_META={
+  KR:{flag:'🇰🇷',color:'#ff6b9d',label:'한국'},
+  US:{flag:'🇺🇸',color:'#6c7fff',label:'미국'},
+  AU:{flag:'🇦🇺',color:'#fbbf24',label:'호주'},
+  CA:{flag:'🇨🇦',color:'#f87171',label:'캐나다'},
+  MX:{flag:'🇲🇽',color:'#4ade80',label:'멕시코'},
+  SG:{flag:'🇸🇬',color:'#22d3ee',label:'싱가포르'},
+  TW:{flag:'🇹🇼',color:'#fb923c',label:'대만'},
+  WW:{flag:'🌐',color:'#a78bfa',label:'글로벌'}
+};
+const PLAT_COL={META:'#6c7fff',TIKTOK:'#22d3ee',WADIZ:'#fb923c',AMAZON:'#fbbf24',SHOPEEADS:'#a78bfa',INSTAGRAM:'#f472b6','X(트위터)':'#94a3b8',THREAD:'#fb923c',YOUTUBE:'#f87171',DEFAULT:'#6b7280'};
+const CHAN_COL={WADIZ:'#fbbf24','네이버 스스':'#4ade80',AMAZON:'#6c7fff','오프라인 약국':'#a78bfa'};
+
+Chart.defaults.color='#8892a4';
+Chart.defaults.borderColor='#2e3354';
+Chart.defaults.font.family="'Segoe UI',sans-serif";
+Chart.defaults.font.size=12;
+const gr={color:'rgba(46,51,84,.65)',drawBorder:false};
+const tk={color:'#8892a4',font:{size:11}};
+
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+const S={
+  dataByCountry:{},  // {country: {byMonth, snsByPlat, adByPlat, channelTraffic}}
+  byWeek:{},         // {weekLabel: {month, revenue, orderCount, impressions, clicks, adCost}}
+  allCountries:[],
+  activeCountries: new Set(), // empty = all
+  activeMonths:{overview:'all',finance:'all',content:'all',marketing:'all',weekly:'all'},
+  activeContentPlats: new Set(),
+  activeMktPlats: new Set(),
+  charts:{}
+};
+
+// ═══════════════════════════════════════════
+//  FORMATTERS
+// ═══════════════════════════════════════════
+function fmtW(n,sign=false){
+  if(!n||isNaN(n)) return '0원';
+  const sg=n<0?'-':(sign&&n>0?'+':'');
+  const a=Math.abs(n), m=Math.round(a/10000);
+  if(m===0) return sg+Math.round(a).toLocaleString('ko-KR')+'원';
+  if(m>=10000){const e=Math.floor(m/10000),r=m%10000;return sg+e+'억'+(r>0?r+'만':'')+'원';}
+  if(m>=1000){const c=Math.floor(m/1000),r=m%1000;return sg+c+'천'+(r>0?r+'만원':'만원');}
+  return sg+m+'만원';
+}
+function fmtN(n){
+  if(!n||isNaN(n)) return '0';
+  if(n>=100000000) return (n/100000000).toFixed(1)+'억';
+  if(n>=10000000)  return (n/10000000).toFixed(1)+'천만';
+  if(n>=1000000)   return (n/1000000).toFixed(1)+'백만';
+  if(n>=10000)     return Math.round(n/10000)+'만';
+  return Math.round(n).toLocaleString('ko-KR');
+}
+const fmtM=n=>Math.round((n||0)/10000);
+const toNum=v=>parseFloat((v||'0').replace(/,/g,''))||0;
+
+// ═══════════════════════════════════════════
+//  CSV PARSER
+// ═══════════════════════════════════════════
+function parseCSV(text){
+  const lines=text.split('\n').filter(l=>l.trim());
+  return lines.map(line=>{
+    const r=[];let q=false,c='';
+    for(const ch of line){if(ch==='"'){q=!q;}else if(ch===','&&!q){r.push(c);c='';}else{c+=ch;}}
+    r.push(c);return r;
+  });
+}
+
+// ═══════════════════════════════════════════
+//  DATA PROCESSING (per country)
+// ═══════════════════════════════════════════
+function zeroM(){return{revenue:0,adCost:0,totalCost:0,impressions:0,clicks:0,attrSales:0,likes:0,saves:0,snsTraffic:0,snsFollower:0,orderCount:0,refund:0,outsourcing:0,influencer:0,shipping:0,logistics:0,channelFee:0,productCost:0,misc:0,solution:0};}
+function zeroS(){return{impressions:0,likes:0,saves:0,snsTraffic:0,snsFollower:0,count:0};}
+function zeroA(){return{adCost:0,impressions:0,clicks:0,attrSales:0};}
+function zeroCT(){return{revenue:0,orderCount:0,trafficFinal:0};}
+function mergeObj(dst,src){for(const k of Object.keys(dst)){dst[k]=(dst[k]||0)+(src[k]||0);}}
+const mk=(o,k,fn)=>{if(!o[k])o[k]=fn();return o[k];};
+
+function processData(rows){
+  const COL={activity:3,country:4,platform:5,salesChannel:6,revenue:10,orderCount:11,refund:12,trafficFinal:16,snsTraffic:25,snsFollower:26,impressions:31,clicks:32,attrSales:33,saves:34,likes:35,month:39,week:40,adCost:44,productCost:46,channelFee:47,shipping:48,logistics:49,outsourcing:50,influencer:51,misc:52,solution:53};
+  S.dataByCountry={};S.byWeek={};
+
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];
+    const act=r[COL.activity]?.trim()||'';
+    const ctr=r[COL.country]?.trim()||'ALL';
+    const mon=r[COL.month]?.trim()||'';
+    const plat=r[COL.platform]?.trim()||'';
+    const chan=r[COL.salesChannel]?.trim()||'';
+    const week=r[COL.week]?.trim()||'';
+    if(!mon) continue;
+
+    const dc=mk(S.dataByCountry,ctr,()=>({byMonth:{},snsByPlat:{},adByPlat:{},channelTraffic:{}}));
+
+    // byMonth
+    const m=mk(dc.byMonth,mon,zeroM);
+    const adC=toNum(r[COL.adCost]),pC=toNum(r[COL.productCost]),cF=toNum(r[COL.channelFee]);
+    const sh=toNum(r[COL.shipping]),lo=toNum(r[COL.logistics]),ou=toNum(r[COL.outsourcing]);
+    const inf=toNum(r[COL.influencer]),ms=toNum(r[COL.misc]),sl=toNum(r[COL.solution]);
+    const tot=adC+pC+cF+sh+lo+ou+inf+ms+sl;
+    m.revenue+=toNum(r[COL.revenue]);m.adCost+=adC;m.totalCost+=tot;
+    m.impressions+=toNum(r[COL.impressions]);m.clicks+=toNum(r[COL.clicks]);
+    m.attrSales+=toNum(r[COL.attrSales]);m.likes+=toNum(r[COL.likes]);
+    m.saves+=toNum(r[COL.saves]);m.snsTraffic+=toNum(r[COL.snsTraffic]);
+    m.snsFollower+=toNum(r[COL.snsFollower]);m.orderCount+=toNum(r[COL.orderCount]);
+    m.refund+=toNum(r[COL.refund]);m.outsourcing+=ou;m.influencer+=inf;
+    m.shipping+=sh;m.logistics+=lo;m.channelFee+=cF;m.productCost+=pC;m.misc+=ms;m.solution+=sl;
+
+    // SNS Owned
+    if(act==='SNS Owned'&&plat){
+      const sp=mk(dc.snsByPlat,plat,()=>({}));
+      const sm=mk(sp,mon,zeroS);
+      sm.impressions+=toNum(r[COL.impressions]);sm.likes+=toNum(r[COL.likes]);
+      sm.saves+=toNum(r[COL.saves]);sm.snsTraffic+=toNum(r[COL.snsTraffic]);
+      sm.snsFollower+=toNum(r[COL.snsFollower]);sm.count++;
+    }
+    // Ad
+    if(act==='광고'&&plat){
+      const ap=mk(dc.adByPlat,plat,()=>({}));
+      const am=mk(ap,mon,zeroA);
+      am.adCost+=adC;am.impressions+=toNum(r[COL.impressions]);
+      am.clicks+=toNum(r[COL.clicks]);am.attrSales+=toNum(r[COL.attrSales]);
+    }
+    // Channel traffic
+    if(act==='판매채널'&&chan){
+      const ct=mk(dc.channelTraffic,chan,()=>({}));
+      const cm=mk(ct,mon,zeroCT);
+      cm.revenue+=toNum(r[COL.revenue]);cm.orderCount+=toNum(r[COL.orderCount]);
+      cm.trafficFinal+=toNum(r[COL.trafficFinal]);
+    }
+    // Weekly
+    if(week){
+      const wk=mk(S.byWeek,week,()=>({month:mon,revenue:0,orderCount:0,impressions:0,clicks:0,adCost:0}));
+      wk.revenue+=toNum(r[COL.revenue]);wk.orderCount+=toNum(r[COL.orderCount]);
+      wk.impressions+=toNum(r[COL.impressions]);wk.clicks+=toNum(r[COL.clicks]);
+      wk.adCost+=adC;
+    }
+  }
+  S.allCountries=Object.keys(S.dataByCountry).filter(c=>c!=='ALL').sort();
+  if(S.activeCountries.size===0) S.allCountries.forEach(c=>S.activeCountries.add(c));
+}
+
+// ═══════════════════════════════════════════
+//  MERGE DATA (respects country filter)
+// ═══════════════════════════════════════════
+function getActive(){return S.activeCountries.size===0?S.allCountries:[...S.activeCountries];}
+
+function mergeCountries(){
+  const res={byMonth:{},snsByPlat:{},adByPlat:{},channelTraffic:{}};
+  for(const c of getActive()){
+    const d=S.dataByCountry[c];if(!d) continue;
+    // byMonth
+    for(const[m,v] of Object.entries(d.byMonth||{})){
+      const dst=mk(res.byMonth,m,zeroM);mergeObj(dst,v);
+    }
+    // snsByPlat
+    for(const[p,mdata] of Object.entries(d.snsByPlat||{})){
+      for(const[m,v] of Object.entries(mdata)){
+        const dst=mk(mk(res.snsByPlat,p,()=>({})),m,zeroS);mergeObj(dst,v);
+      }
+    }
+    // adByPlat
+    for(const[p,mdata] of Object.entries(d.adByPlat||{})){
+      for(const[m,v] of Object.entries(mdata)){
+        const dst=mk(mk(res.adByPlat,p,()=>({})),m,zeroA);mergeObj(dst,v);
+      }
+    }
+    // channelTraffic
+    for(const[ch,mdata] of Object.entries(d.channelTraffic||{})){
+      for(const[m,v] of Object.entries(mdata)){
+        const dst=mk(mk(res.channelTraffic,ch,()=>({})),m,zeroCT);mergeObj(dst,v);
+      }
+    }
+  }
+  return res;
+}
+
+// ═══════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════
+function getMonths(panel,byMonth){
+  const m=S.activeMonths[panel]||'all';
+  const all=Object.keys(byMonth).sort((a,b)=>MO.indexOf(a)-MO.indexOf(b));
+  return m==='all'?all:all.filter(x=>x===m);
+}
+function sumM(months,bm,f){return months.reduce((s,m)=>s+(bm[m]?.[f]||0),0);}
+function dc(id){if(S.charts[id]){S.charts[id].destroy();delete S.charts[id];}}
+function mkC(id,cfg){dc(id);S.charts[id]=new Chart(document.getElementById(id),cfg);return S.charts[id];}
+function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`;}
+function platColor(p,a=0.75){const h=PLAT_COL[p]||PLAT_COL.DEFAULT;return hexToRgba(h,a);}
+
+// ═══════════════════════════════════════════
+//  SWITCH CHART TYPE
+// ═══════════════════════════════════════════
+function swType(id,type,btn){
+  btn.closest('.cca').querySelectorAll('.ccb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const ch=S.charts[id];if(!ch)return;
+  // rebuild with current type via stored config
+  if(ch._typeToggle){ch._typeToggle(type);}
+}
+
+// ═══════════════════════════════════════════
+//  TAB / MONTH CONTROLS
+// ═══════════════════════════════════════════
+function showTab(name,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  el.classList.add('active');
+}
+function filterMonth(el){
+  const p=el.dataset.panel,m=el.dataset.month;
+  document.querySelectorAll(`[data-panel="${p}"]`).forEach(x=>{x.className=x.className.replace(/\bon\b/g,'').trim();});
+  el.classList.add('on');
+  S.activeMonths[p]=m;
+  rebuildPanel(p);
+}
+function rebuildPanel(p){
+  if(p==='overview') buildOv();
+  if(p==='finance') buildFin();
+  if(p==='content') buildCnt();
+  if(p==='marketing') buildMkt();
+  if(p==='weekly') buildWk();
+}
+
+// ═══════════════════════════════════════════
+//  COUNTRY FILTER UI
+// ═══════════════════════════════════════════
+function buildCountryFilter(){
+  const el=document.getElementById('country-pills');
+  const isAll=S.activeCountries.size===S.allCountries.length;
+  let html=`<span class="cpill ${isAll?'on':''}" onclick="toggleCountry('all')" style="--cc:var(--ac)">전체 <span class="ccount">${S.allCountries.length}개국</span></span>`;
+  html+=S.allCountries.map(c=>{
+    const m=COUNTRY_META[c]||{flag:'🌍',color:'#6b7280',label:c};
+    const isOn=S.activeCountries.has(c);
+    const style=isOn&&!isAll?`style="--cc:${m.color};border-color:${m.color};color:${m.color};background:${hexToRgba(m.color,.1)}"`:
+                             `style="--cc:${m.color}"`;
+    return`<span class="cpill ${isOn&&!isAll?'on':''}" onclick="toggleCountry('${c}')" ${style}><span class="cflag">${m.flag}</span>${m.label}</span>`;
+  }).join('');
+  el.innerHTML=html;
+}
+
+function toggleCountry(c){
+  if(c==='all'){
+    // Reset: select all countries
+    S.allCountries.forEach(x=>S.activeCountries.add(x));
+  } else {
+    const isAllMode = S.activeCountries.size === S.allCountries.length;
+    if(isAllMode){
+      // From "all" mode → select only this one country
+      S.activeCountries.clear();
+      S.activeCountries.add(c);
+    } else if(S.activeCountries.has(c)){
+      // Deselect this country
+      S.activeCountries.delete(c);
+      // If nothing left, go back to all
+      if(S.activeCountries.size===0) S.allCountries.forEach(x=>S.activeCountries.add(x));
+    } else {
+      // Add this country to current selection (multi-select)
+      S.activeCountries.add(c);
+    }
+  }
+  buildCountryFilter();
+  ['overview','finance','content','marketing','weekly'].forEach(p=>rebuildPanel(p));
+}
+
+
+
+
+// ═══════════════════════════════════════════
+//  KPI CARD
+// ═══════════════════════════════════════════
+function kpi(label,value,sub,chgCls,chgTxt,icon,barColor){
+  return`<div class="kc"><div class="kbar" style="background:${barColor||'var(--ac)'}"></div><span class="kico">${icon}</span><div class="klb">${label}</div><div class="kv">${value}</div><div class="ks">${sub}</div>${chgTxt?`<div class="kch ${chgCls}">${chgTxt}</div>`:''}</div>`;
+}
+
+// ═══════════════════════════════════════════
+//  BUILD OVERVIEW
+// ═══════════════════════════════════════════
+function buildOv(){
+  const{byMonth,channelTraffic}=mergeCountries();
+  const months=getMonths('overview',byMonth);
+  const rev=sumM(months,byMonth,'revenue'),cost=sumM(months,byMonth,'totalCost'),adC=sumM(months,byMonth,'adCost');
+  const imp=sumM(months,byMonth,'impressions'),ord=sumM(months,byMonth,'orderCount'),margin=rev-cost;
+
+  document.getElementById('ov-kpi').innerHTML=
+    kpi('총 매출',fmtW(rev),'판매채널 합계','','','💵','var(--gn)')+
+    kpi('총 비용',fmtW(cost),'전체 비용','','','📉','var(--rd)')+
+    kpi('순이익',fmtW(margin,true),'매출 − 총비용',margin<0?'dn':'up','마진율 '+(cost>0?Math.round(margin/cost*100):0)+'%','⚖️',margin<0?'var(--rd)':'var(--gn)')+
+    kpi('광고비',fmtW(adC),'VAT 미포함','','','📣','var(--yw)')+
+    kpi('총 노출',fmtN(imp),'전 플랫폼','','','👁️','var(--ac)')+
+    kpi('총 주문',Math.round(ord)+'건','판매건수','','','🛒','var(--pu)');
+
+  // Country breakdown mini-row
+  const activeCtrs=getActive().filter(c=>S.dataByCountry[c]);
+  const bd=document.getElementById('ov-country-breakdown');
+  if(bd&&activeCtrs.length>1){
+    const rows=activeCtrs.map(c=>{
+      const cm=COUNTRY_META[c]||{flag:'🌍',color:'#6b7280',label:c};
+      const cRev=months.reduce((s,m)=>s+(S.dataByCountry[c]?.byMonth[m]?.revenue||0),0);
+      const cAd=months.reduce((s,m)=>s+(S.dataByCountry[c]?.byMonth[m]?.adCost||0),0);
+      const cOrd=months.reduce((s,m)=>s+(S.dataByCountry[c]?.byMonth[m]?.orderCount||0),0);
+      const cImp=months.reduce((s,m)=>s+(S.dataByCountry[c]?.byMonth[m]?.impressions||0),0);
+      return`<tr>
+        <td><span style="display:inline-flex;align-items:center;gap:5px;font-weight:700;color:${cm.color}">${cm.flag} ${cm.label} (${c})</span></td>
+        <td class="tr" style="color:var(--gn);font-weight:600">${fmtW(cRev)}</td>
+        <td class="tr">${fmtW(cAd)}</td>
+        <td class="tr">${Math.round(cOrd)}건</td>
+        <td class="tr">${fmtN(cImp)}</td>
+      </tr>`;
+    });
+    bd.innerHTML=`<div class="cc" style="margin-bottom:16px">
+      <div class="cct" style="margin-bottom:12px">🌍 국가별 요약</div>
+      <table class="tbl"><thead><tr><th>국가</th><th class="tr">매출</th><th class="tr">광고비</th><th class="tr">주문</th><th class="tr">노출</th></tr></thead>
+      <tbody>${rows.join('')}</tbody></table></div>`;
+  } else if(bd){bd.innerHTML='';}
+
+  // Revenue stacked by country
+  const revCostChart=mkC('ov-revcost',{
+    type:'bar',
+    data:{
+      labels:months,
+      datasets:activeCtrs.length>1
+        ? activeCtrs.map(c=>({
+            label:(COUNTRY_META[c]?.flag||'')+' '+(COUNTRY_META[c]?.label||c),
+            data:months.map(m=>fmtM(S.dataByCountry[c]?.byMonth[m]?.revenue||0)),
+            backgroundColor:hexToRgba(COUNTRY_META[c]?.color||'#6b7280',.75),
+            borderRadius:4,stack:'rev'
+          }))
+        : [
+            {label:'매출',data:months.map(m=>fmtM(byMonth[m]?.revenue||0)),backgroundColor:'rgba(74,222,128,.7)',borderColor:'rgba(74,222,128,1)',borderWidth:1.5,borderRadius:6},
+            {label:'광고비',data:months.map(m=>fmtM(byMonth[m]?.adCost||0)),backgroundColor:'rgba(251,191,36,.7)',borderColor:'rgba(251,191,36,1)',borderWidth:1.5,borderRadius:6},
+            {label:'총비용',data:months.map(m=>fmtM(byMonth[m]?.totalCost||0)),backgroundColor:'rgba(248,113,113,.7)',borderColor:'rgba(248,113,113,1)',borderWidth:1.5,borderRadius:6}
+          ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#e2e8f0'}}},
+      scales:{x:{grid:gr,ticks:tk,stacked:true},y:{grid:gr,ticks:{...tk,callback:v=>v+'만원'},stacked:activeCtrs.length>1}}}
+  });
+  revCostChart._typeToggle=(type)=>{
+    revCostChart.config.type=type;
+    revCostChart.data.datasets.forEach(d=>{delete d.type;if(type==='line'){delete d.stack;}});
+    revCostChart.update();
+  };
+
+  // Orders stacked by country
+  mkC('ov-orders',{type:'bar',data:{labels:months,datasets:
+    activeCtrs.length>1
+      ? activeCtrs.map(c=>({
+          label:(COUNTRY_META[c]?.flag||'')+' '+(COUNTRY_META[c]?.label||c),
+          data:months.map(m=>Math.round(S.dataByCountry[c]?.byMonth[m]?.orderCount||0)),
+          backgroundColor:hexToRgba(COUNTRY_META[c]?.color||'#6b7280',.75),
+          borderRadius:4,stack:'ord'
+        }))
+      : [
+          {label:'주문건수',data:months.map(m=>Math.round(byMonth[m]?.orderCount||0)),backgroundColor:'rgba(108,127,255,.75)',borderRadius:6,yAxisID:'y'},
+          {label:'노출수',data:months.map(m=>byMonth[m]?.impressions||0),type:'line',borderColor:'rgba(34,211,238,1)',backgroundColor:'rgba(34,211,238,.1)',fill:true,tension:.4,pointRadius:5,yAxisID:'y1'}
+        ]
+  },options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#e2e8f0'}}},
+    scales:{x:{grid:gr,ticks:tk,stacked:activeCtrs.length>1},
+      y:{grid:gr,ticks:{...tk,callback:v=>v+'건'},position:'left',stacked:activeCtrs.length>1},
+      y1:activeCtrs.length>1?undefined:{grid:{display:false},ticks:{...tk,callback:v=>fmtN(v)},position:'right'}}}});
+
+  // Cost pie
+  const costItems=['광고비','인플루언서','외주','판매수수료','물류비','배송비','제품원가','부대비용','솔루션비'];
+  const costFields=['adCost','influencer','outsourcing','channelFee','logistics','shipping','productCost','misc','solution'];
+  const pieC=['rgba(251,191,36,.85)','rgba(255,107,157,.85)','rgba(108,127,255,.85)','rgba(34,211,238,.85)','rgba(167,139,250,.85)','rgba(74,222,128,.85)','rgba(251,146,60,.85)','rgba(148,163,184,.85)','rgba(236,72,153,.85)'];
+  mkC('ov-costpie',{type:'doughnut',data:{labels:costItems,datasets:[{data:costFields.map(f=>fmtM(sumM(months,byMonth,f))),backgroundColor:pieC,borderWidth:2,borderColor:'#1a1d2e'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'right',labels:{color:'#e2e8f0',font:{size:10},padding:7}},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed}만원`}}}}});
+
+  // Channel rev
+  const chans=Object.keys(channelTraffic);
+  mkC('ov-chanrev',{type:'doughnut',data:{labels:chans,datasets:[{data:chans.map(ch=>fmtM(months.reduce((s,m)=>s+(channelTraffic[ch]?.[m]?.revenue||0),0))),backgroundColor:chans.map(ch=>CHAN_COL[ch]||'rgba(108,127,255,.8)'),borderWidth:2,borderColor:'#1a1d2e'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'right',labels:{color:'#e2e8f0',font:{size:11},padding:9}},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed}만원`}}}}});
+}
+
+
+
+// ═══════════════════════════════════════════
+//  BUILD FINANCE
+// ═══════════════════════════════════════════
+function buildFin(){
+  const{byMonth}=mergeCountries();
+  const months=getMonths('finance',byMonth);
+  const rev=sumM(months,byMonth,'revenue'),cost=sumM(months,byMonth,'totalCost');
+  const adC=sumM(months,byMonth,'adCost'),inf=sumM(months,byMonth,'influencer');
+  const margin=rev-cost;
+  document.getElementById('fin-kpi').innerHTML=
+    kpi('매출',fmtW(rev),'선택기간','','','📈','var(--gn)')+
+    kpi('총비용',fmtW(cost),'선택기간','','','💸','var(--rd)')+
+    kpi('순이익',fmtW(margin,true),'매출−총비용',margin<0?'dn':'up','마진율 '+(cost>0?Math.round(margin/cost*100):0)+'%','⚖️',margin<0?'var(--rd)':'var(--gn)')+
+    kpi('광고비',fmtW(adC),'총비용의 '+(cost>0?Math.round(adC/cost*100):0)+'%','','','📣','var(--yw)')+
+    kpi('인플루언서',fmtW(inf),'용역비','','','🤝','var(--pk)')+
+    kpi('물류+배송',fmtW(sumM(months,byMonth,'logistics')+sumM(months,byMonth,'shipping')),'합산','','','🚚','var(--cy)');
+
+  const costItems=['광고비','인플루언서','외주','판매수수료','물류비','배송비','제품원가','부대비용','솔루션비'];
+  const costFields=['adCost','influencer','outsourcing','channelFee','logistics','shipping','productCost','misc','solution'];
+  const pieC=['rgba(251,191,36,.85)','rgba(255,107,157,.85)','rgba(108,127,255,.85)','rgba(34,211,238,.85)','rgba(167,139,250,.85)','rgba(74,222,128,.85)','rgba(251,146,60,.85)','rgba(148,163,184,.85)','rgba(236,72,153,.85)'];
+  const pieChart=mkC('fin-pie',{type:'doughnut',data:{labels:costItems,datasets:[{data:costFields.map(f=>fmtM(sumM(months,byMonth,f))),backgroundColor:pieC,borderWidth:2,borderColor:'#1a1d2e'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'56%',plugins:{legend:{position:'right',labels:{color:'#e2e8f0',font:{size:11},padding:8}},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed}만원`}}}}});
+  pieChart._typeToggle=(type)=>{
+    if(type==='doughnut'){pieChart.config.type='doughnut';pieChart.options.cutout='56%';}
+    else{
+      pieChart.config.type='bar';pieChart.options.cutout=undefined;
+      pieChart.data.datasets[0].borderRadius=5;
+    }
+    pieChart.update();
+  };
+
+  const allM=Object.keys(byMonth).sort((a,b)=>MO.indexOf(a)-MO.indexOf(b));
+  mkC('fin-margin',{type:'bar',data:{labels:allM,datasets:[
+    {label:'매출',data:allM.map(m=>fmtM(byMonth[m]?.revenue||0)),backgroundColor:'rgba(74,222,128,.7)',borderRadius:5,borderWidth:1.5,borderColor:'rgba(74,222,128,1)'},
+    {label:'총비용',data:allM.map(m=>fmtM(byMonth[m]?.totalCost||0)),backgroundColor:'rgba(248,113,113,.7)',borderRadius:5,borderWidth:1.5,borderColor:'rgba(248,113,113,1)'},
+    {label:'순이익',data:allM.map(m=>fmtM((byMonth[m]?.revenue||0)-(byMonth[m]?.totalCost||0))),type:'line',borderColor:'rgba(251,191,36,1)',backgroundColor:'rgba(251,191,36,.1)',fill:true,tension:.4,pointRadius:5}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},scales:{x:{grid:gr,ticks:tk},y:{grid:gr,ticks:{...tk,callback:v=>v+'만원'}}}}});
+
+  // Table
+  const rows=[['📣 광고비','adCost'],['🤝 인플루언서','influencer'],['🔧 외주','outsourcing'],['🏪 판매수수료','channelFee'],['🚚 물류비','logistics'],['📦 배송비','shipping'],['🏭 제품원가','productCost'],['🛠️ 부대비용','misc'],['💻 솔루션비','solution']];
+  let html=`<thead><tr><th>항목</th>${allM.map(m=>`<th class="tr">${m}</th>`).join('')}<th class="tr">합계</th></tr></thead><tbody>`;
+  rows.forEach(([lb,f])=>{
+    const vals=allM.map(m=>byMonth[m]?.[f]||0);
+    const sum=vals.reduce((a,b)=>a+b,0);
+    html+=`<tr><td>${lb}</td>${vals.map(v=>`<td class="tr">${v>0?fmtW(v):'<span style="color:var(--bd)">—</span>'}</td>`).join('')}<td class="tr" style="font-weight:700">${fmtW(sum)}</td></tr>`;
+  });
+  const tots=allM.map(m=>byMonth[m]?.totalCost||0);
+  html+=`<tr style="font-weight:800;border-top:2px solid var(--bd)"><td>📊 합계</td>${tots.map(v=>`<td class="tr">${fmtW(v)}</td>`).join('')}<td class="tr">${fmtW(tots.reduce((a,b)=>a+b,0))}</td></tr></tbody>`;
+  document.getElementById('fin-table').innerHTML=html;
+}
+
+// ═══════════════════════════════════════════
+//  BUILD CONTENT
+// ═══════════════════════════════════════════
+function buildCnt(){
+  const{snsByPlat,byMonth}=mergeCountries();
+  const months=getMonths('content',byMonth);
+  const platList=Object.keys(snsByPlat).filter(p=>S.activeContentPlats.has(p));
+
+  let tI=0,tL=0,tS=0,tT=0,tF=0,tC=0;
+  platList.forEach(p=>months.forEach(m=>{const d=snsByPlat[p]?.[m];if(!d)return;tI+=d.impressions;tL+=d.likes;tS+=d.saves;tT+=d.snsTraffic;tF+=d.snsFollower;tC+=d.count;}));
+  document.getElementById('cnt-kpi').innerHTML=
+    kpi('총 노출',fmtN(tI),'SNS합산','','','👁️','var(--ac)')+
+    kpi('좋아요',tL.toLocaleString(),'전플랫폼','','','❤️','var(--pk)')+
+    kpi('저장/공유',tS.toLocaleString(),'전플랫폼','','','🔖','var(--pu)')+
+    kpi('SNS 유입',tT.toLocaleString(),'사이트유입','','','🔗','var(--gn)')+
+    kpi('팔로워+','+'+tF,'순증가','','','👥','var(--cy)')+
+    kpi('콘텐츠 수',tC+'건','업로드','','','📝','var(--yw)');
+
+  // Platform chips
+  const allSnsPl=Object.keys(snsByPlat);
+  if(S.activeContentPlats.size===0) allSnsPl.forEach(p=>S.activeContentPlats.add(p));
+  document.getElementById('cnt-plat-chips').innerHTML=allSnsPl.map(p=>{
+    const col=PLAT_COL[p]||PLAT_COL.DEFAULT;
+    return`<span class="plat-chip ${S.activeContentPlats.has(p)?'':'off'}" onclick="toggleCntPlat('${p}',this)"><span class="pdot" style="background:${col}"></span>${p}</span>`;
+  }).join('');
+
+  mkC('cnt-imp',{type:'bar',data:{labels:months,datasets:platList.map(p=>({
+    label:p,data:months.map(m=>snsByPlat[p]?.[m]?.impressions||0),
+    backgroundColor:platColor(p,.72),borderRadius:4,stack:'a'
+  }))},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#e2e8f0',font:{size:11}}}},
+    scales:{x:{grid:gr,ticks:tk,stacked:true},y:{grid:gr,ticks:{...tk,callback:v=>fmtN(v)},stacked:true}}}});
+
+  mkC('cnt-engage',{type:'bar',data:{labels:platList,datasets:[
+    {label:'좋아요',data:platList.map(p=>months.reduce((s,m)=>s+(snsByPlat[p]?.[m]?.likes||0),0)),backgroundColor:'rgba(244,114,182,.75)',borderRadius:5},
+    {label:'저장/공유',data:platList.map(p=>months.reduce((s,m)=>s+(snsByPlat[p]?.[m]?.saves||0),0)),backgroundColor:'rgba(167,139,250,.75)',borderRadius:5},
+    {label:'콘텐츠수',data:platList.map(p=>months.reduce((s,m)=>s+(snsByPlat[p]?.[m]?.count||0),0)),backgroundColor:'rgba(251,191,36,.75)',borderRadius:5,yAxisID:'y1'}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#e2e8f0'}}},
+    scales:{x:{grid:gr,ticks:tk},y:{grid:gr,ticks:tk,position:'left'},y1:{grid:{display:false},ticks:{...tk,callback:v=>v+'건'},position:'right'}}}});
+
+  const allM=Object.keys(byMonth).sort((a,b)=>MO.indexOf(a)-MO.indexOf(b));
+  mkC('cnt-traffic',{type:'line',data:{labels:allM,datasets:[
+    {label:'SNS 유입',data:allM.map(m=>Object.values(snsByPlat).reduce((s,p)=>s+(p[m]?.snsTraffic||0),0)),borderColor:'rgba(108,127,255,1)',backgroundColor:'rgba(108,127,255,.1)',fill:true,tension:.4,pointRadius:5,yAxisID:'y'},
+    {label:'팔로워+',data:allM.map(m=>Object.values(snsByPlat).reduce((s,p)=>s+(p[m]?.snsFollower||0),0)),borderColor:'rgba(74,222,128,1)',fill:false,tension:.4,pointRadius:5,yAxisID:'y1'}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},
+    scales:{x:{grid:gr,ticks:tk},y:{grid:gr,ticks:tk,position:'left'},y1:{grid:{display:false},ticks:tk,position:'right'}}}});
+
+  const pb={'INSTAGRAM':'b-ig','TIKTOK':'b-tk','X(트위터)':'b-tw','THREAD':'b-th','YOUTUBE':'b-yt','WADIZ':'b-wz'};
+  let tbl=`<thead><tr><th>플랫폼</th><th class="tr">노출</th><th class="tr">좋아요</th><th class="tr">저장</th><th class="tr">유입</th><th class="tr">팔로워+</th><th class="tr">건수</th><th class="tr">노출/건</th></tr></thead><tbody>`;
+  platList.forEach(p=>{
+    const tI2=months.reduce((s,m)=>s+(snsByPlat[p]?.[m]?.impressions||0),0);
+    const tL2=months.reduce((s,m)=>s+(snsByPlat[p]?.[m]?.likes||0),0);
+    const tS2=months.reduce((s,m)=>s+(snsByPlat[p]?.[m]?.saves||0),0);
+    const tT2=months.reduce((s,m)=>s+(snsByPlat[p]?.[m]?.snsTraffic||0),0);
+    const tF2=months.reduce((s,m)=>s+(snsByPlat[p]?.[m]?.snsFollower||0),0);
+    const tC2=months.reduce((s,m)=>s+(snsByPlat[p]?.[m]?.count||0),0);
+    const ef=tC2>0?(tI2/tC2).toFixed(1):'-';
+    tbl+=`<tr><td><span class="badge ${pb[p]||'b-am'}">${p}</span></td><td class="tr">${fmtN(tI2)}</td><td class="tr">${tL2}</td><td class="tr">${tS2}</td><td class="tr">${tT2.toLocaleString()}</td><td class="tr">+${tF2}</td><td class="tr">${tC2}건</td><td class="tr">${ef}</td></tr>`;
+  });
+  document.getElementById('cnt-table').innerHTML=tbl+'</tbody>';
+}
+function toggleCntPlat(p,el){
+  if(S.activeContentPlats.has(p)){if(S.activeContentPlats.size>1)S.activeContentPlats.delete(p);}
+  else S.activeContentPlats.add(p);
+  el.classList.toggle('off');buildCnt();
+}
+
+// ═══════════════════════════════════════════
+//  BUILD MARKETING
+// ═══════════════════════════════════════════
+function buildMkt(){
+  const{adByPlat,channelTraffic,byMonth}=mergeCountries();
+  const months=getMonths('marketing',byMonth);
+  const platList=Object.keys(adByPlat).filter(p=>S.activeMktPlats.has(p));
+
+  let tA=0,tI=0,tC=0,tS=0;
+  platList.forEach(p=>months.forEach(m=>{const d=adByPlat[p]?.[m];if(!d)return;tA+=d.adCost;tI+=d.impressions;tC+=d.clicks;tS+=d.attrSales;}));
+  const roas=tA>0?Math.round(tS/tA*100):0;
+  const topP=platList.reduce((best,p)=>{const a=months.reduce((s,m)=>s+(adByPlat[p]?.[m]?.adCost||0),0);const s2=months.reduce((s,m)=>s+(adByPlat[p]?.[m]?.attrSales||0),0);const r=a>0?s2/a:0;return r>(best.r||0)?{p,r}:best;},{}).p||'—';
+
+  document.getElementById('mkt-kpi').innerHTML=
+    kpi('광고비',fmtW(tA),'VAT미포함','','','💸','var(--yw)')+
+    kpi('총 노출',fmtN(tI),'광고합산','','','👁️','var(--ac)')+
+    kpi('총 클릭',tC.toLocaleString(),'광고클릭','','','🖱️','var(--cy)')+
+    kpi('기여판매',fmtW(tS),'광고기여','','','🎯','var(--gn)')+
+    kpi('ROAS',roas+'%','기여판매÷광고비',roas>=100?'up':'dn',roas>=100?'목표달성':'개선필요','📊',roas>=100?'var(--gn)':'var(--rd)')+
+    kpi('최고ROAS',topP,'플랫폼','','','🏆','var(--pu)');
+
+  // Platform chips
+  if(S.activeMktPlats.size===0) Object.keys(adByPlat).forEach(p=>S.activeMktPlats.add(p));
+  document.getElementById('mkt-plat-chips').innerHTML=Object.keys(adByPlat).map(p=>{
+    const col=PLAT_COL[p]||PLAT_COL.DEFAULT;
+    return`<span class="plat-chip ${S.activeMktPlats.has(p)?'':'off'}" onclick="toggleMktPlat('${p}',this)"><span class="pdot" style="background:${col}"></span>${p}</span>`;
+  }).join('');
+
+  const dispM=months.length?months:Object.keys(byMonth).sort((a,b)=>MO.indexOf(a)-MO.indexOf(b));
+  const adChart=mkC('mkt-adcost',{type:'bar',data:{labels:dispM,datasets:platList.map(p=>({
+    label:p,data:dispM.map(m=>fmtM(adByPlat[p]?.[m]?.adCost||0)),
+    backgroundColor:platColor(p,.72),borderRadius:4,stack:'a'
+  }))},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#e2e8f0',font:{size:11}}}},
+    scales:{x:{grid:gr,ticks:tk,stacked:true},y:{grid:gr,ticks:{...tk,callback:v=>v+'만원'},stacked:true}}}});
+  adChart._typeToggle=(type)=>{adChart.config.type=type;adChart.data.datasets.forEach(d=>{if(type==='line'){d.fill=false;d.tension=.4;d.pointRadius=4;delete d.stack;}else{d.stack='a';}});adChart.update();};
+
+  const roasData=platList.map(p=>{const a=months.reduce((s,m)=>s+(adByPlat[p]?.[m]?.adCost||0),0);const s2=months.reduce((s,m)=>s+(adByPlat[p]?.[m]?.attrSales||0),0);return a>0?Math.round(s2/a*100):0;});
+  mkC('mkt-roas',{type:'bar',data:{labels:platList,datasets:[{label:'ROAS(%)',data:roasData,backgroundColor:roasData.map(r=>r>=100?'rgba(74,222,128,.75)':r>=30?'rgba(251,191,36,.75)':'rgba(248,113,113,.75)'),borderRadius:6,borderWidth:1.5,borderColor:roasData.map(r=>r>=100?'rgba(74,222,128,1)':r>=30?'rgba(251,191,36,1)':'rgba(248,113,113,1)')}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ROAS: ${c.parsed.y}%`}}},
+      scales:{x:{grid:gr,ticks:tk},y:{grid:gr,ticks:{...tk,callback:v=>v+'%'}}}}});
+
+  const chans=Object.keys(channelTraffic);
+  mkC('mkt-channel',{type:'bar',data:{labels:chans,datasets:[
+    {label:'매출',data:chans.map(ch=>fmtM(months.reduce((s,m)=>s+(channelTraffic[ch]?.[m]?.revenue||0),0))),backgroundColor:'rgba(74,222,128,.75)',borderRadius:5,yAxisID:'y'},
+    {label:'유입수',data:chans.map(ch=>months.reduce((s,m)=>s+(channelTraffic[ch]?.[m]?.trafficFinal||0),0)),type:'line',borderColor:'rgba(108,127,255,1)',backgroundColor:'transparent',pointRadius:7,pointBackgroundColor:'rgba(108,127,255,1)',yAxisID:'y1'}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},
+    scales:{x:{grid:gr,ticks:tk},y:{grid:gr,ticks:{...tk,callback:v=>v+'만원'},position:'left'},y1:{grid:{display:false},ticks:{...tk,callback:v=>v.toLocaleString()+'회'},position:'right'}}}});
+
+  mkC('mkt-clicks',{type:'bar',data:{labels:platList,datasets:[
+    {label:'노출수',data:platList.map(p=>months.reduce((s,m)=>s+(adByPlat[p]?.[m]?.impressions||0),0)),backgroundColor:'rgba(108,127,255,.65)',borderRadius:5,yAxisID:'y'},
+    {label:'클릭수',data:platList.map(p=>months.reduce((s,m)=>s+(adByPlat[p]?.[m]?.clicks||0),0)),backgroundColor:'rgba(34,211,238,.65)',borderRadius:5,yAxisID:'y1'}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},
+    scales:{x:{grid:gr,ticks:tk},y:{grid:gr,ticks:{...tk,callback:v=>fmtN(v)},position:'left'},y1:{grid:{display:false},ticks:{...tk,callback:v=>v.toLocaleString()},position:'right'}}}});
+
+  const pb={'META':'b-am','TIKTOK':'b-tk','WADIZ':'b-wz','AMAZON':'b-am','SHOPEEADS':'b-of'};
+  let tbl=`<thead><tr><th>플랫폼</th><th>월</th><th class="tr">광고비</th><th class="tr">노출수</th><th class="tr">클릭수</th><th class="tr">CTR</th><th class="tr">기여판매</th><th class="tr">ROAS</th></tr></thead><tbody>`;
+  Object.entries(adByPlat).forEach(([p,mdata])=>{
+    Object.entries(mdata).sort((a,b)=>MO.indexOf(a[0])-MO.indexOf(b[0])).forEach(([m,d])=>{
+      const ctr=d.impressions>0?(d.clicks/d.impressions*100).toFixed(2)+'%':'-';
+      const r=d.adCost>0?Math.round(d.attrSales/d.adCost*100):0;
+      const rc=r>=100?'rhi':r>=30?'rmd':'rlo';
+      tbl+=`<tr><td><span class="badge ${pb[p]||'b-am'}">${p}</span></td><td>${m}</td><td class="tr">${fmtW(d.adCost)}</td><td class="tr">${fmtN(d.impressions)}</td><td class="tr">${d.clicks.toLocaleString()}</td><td class="tr">${ctr}</td><td class="tr">${d.attrSales>0?fmtW(d.attrSales):'<span style="color:var(--mu)">—</span>'}</td><td class="tr"><span class="roas ${rc}">${r}%</span></td></tr>`;
+    });
+  });
+  document.getElementById('mkt-table').innerHTML=tbl+'</tbody>';
+}
+function toggleMktPlat(p,el){
+  if(S.activeMktPlats.has(p)){if(S.activeMktPlats.size>1)S.activeMktPlats.delete(p);}
+  else S.activeMktPlats.add(p);
+  el.classList.toggle('off');buildMkt();
+}
+
+// ═══════════════════════════════════════════
+//  BUILD WEEKLY
+// ═══════════════════════════════════════════
+function buildWk(){
+  const{byMonth}=mergeCountries();
+  const activeMon=S.activeMonths['weekly']||'all';
+  const weeks=Object.keys(S.byWeek).sort();
+  const filtW=activeMon==='all'?weeks:weeks.filter(w=>S.byWeek[w]?.month===activeMon);
+
+  const totR=filtW.reduce((s,w)=>s+(S.byWeek[w]?.revenue||0),0);
+  const totA=filtW.reduce((s,w)=>s+(S.byWeek[w]?.adCost||0),0);
+  const totI=filtW.reduce((s,w)=>s+(S.byWeek[w]?.impressions||0),0);
+  const totC=filtW.reduce((s,w)=>s+(S.byWeek[w]?.clicks||0),0);
+  document.getElementById('wk-kpi').innerHTML=
+    kpi('기간 매출',fmtW(totR),filtW.length+'주','','','💵','var(--gn)')+
+    kpi('기간 광고비',fmtW(totA),filtW.length+'주','','','📣','var(--yw)')+
+    kpi('기간 노출',fmtN(totI),filtW.length+'주','','','👁️','var(--ac)')+
+    kpi('기간 클릭',totC.toLocaleString(),filtW.length+'주','','','🖱️','var(--cy)')+
+    kpi('주평균 매출',fmtW(filtW.length?totR/filtW.length:0),'주당','','','📊','var(--pu)')+
+    kpi('주평균 광고비',fmtW(filtW.length?totA/filtW.length:0),'주당','','','💡','var(--or)');
+
+  // Short labels
+  const wkLabels=filtW.map(w=>w.replace(/week(\d+).*/,'W$1'));
+  const wkColors=filtW.map(w=>{const m=S.byWeek[w]?.month;const mo=MO.indexOf(m);return['rgba(108,127,255,.75)','rgba(255,107,157,.75)','rgba(74,222,128,.75)'][mo%3]||'rgba(108,127,255,.75)';});
+
+  const rvChart=mkC('wk-rev',{type:'line',data:{labels:wkLabels,datasets:[{label:'매출',data:filtW.map(w=>fmtM(S.byWeek[w]?.revenue||0)),borderColor:'rgba(74,222,128,1)',backgroundColor:'rgba(74,222,128,.1)',fill:true,tension:.4,pointRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:gr,ticks:{...tk,font:{size:10}}},y:{grid:gr,ticks:{...tk,callback:v=>v+'만원'}}}}});
+  rvChart._typeToggle=(type)=>{rvChart.config.type=type;if(type==='bar'){rvChart.data.datasets[0].backgroundColor=wkColors;rvChart.data.datasets[0].borderRadius=5;}else{rvChart.data.datasets[0].backgroundColor='rgba(74,222,128,.1)';}rvChart.update();};
+
+  mkC('wk-adcost',{type:'bar',data:{labels:wkLabels,datasets:[{label:'광고비',data:filtW.map(w=>fmtM(S.byWeek[w]?.adCost||0)),backgroundColor:wkColors,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:gr,ticks:{...tk,font:{size:10}}},y:{grid:gr,ticks:{...tk,callback:v=>v+'만원'}}}}});
+
+  mkC('wk-imp',{type:'line',data:{labels:wkLabels,datasets:[
+    {label:'노출수',data:filtW.map(w=>S.byWeek[w]?.impressions||0),borderColor:'rgba(108,127,255,1)',backgroundColor:'rgba(108,127,255,.1)',fill:true,tension:.4,pointRadius:3,yAxisID:'y'},
+    {label:'클릭수',data:filtW.map(w=>S.byWeek[w]?.clicks||0),borderColor:'rgba(34,211,238,1)',fill:false,tension:.4,pointRadius:3,yAxisID:'y1'}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},
+    scales:{x:{grid:gr,ticks:{...tk,font:{size:10}}},y:{grid:gr,ticks:{...tk,callback:v=>fmtN(v)},position:'left'},y1:{grid:{display:false},ticks:tk,position:'right'}}}});
+
+  let tbl=`<thead><tr><th>주차</th><th>월</th><th class="tr">매출</th><th class="tr">광고비</th><th class="tr">노출수</th><th class="tr">클릭수</th><th class="tr">ROAS</th></tr></thead><tbody>`;
+  filtW.forEach(w=>{
+    const d=S.byWeek[w];
+    const r=d.adCost>0?Math.round(d.revenue/d.adCost*100):0;
+    const rc=r>=100?'rhi':r>=30?'rmd':'rlo';
+    const shortW=w.replace(/week(\d+)\s*\(([^)]+)\)/,'W$1 ($2)');
+    tbl+=`<tr><td style="font-size:11px">${shortW}</td><td>${d.month}</td><td class="tr">${fmtW(d.revenue)}</td><td class="tr">${fmtW(d.adCost)}</td><td class="tr">${fmtN(d.impressions)}</td><td class="tr">${d.clicks.toLocaleString()}</td><td class="tr"><span class="roas ${rc}">${r}%</span></td></tr>`;
+  });
+  document.getElementById('wk-table').innerHTML=tbl+'</tbody>';
+}
+
+// ═══════════════════════════════════════════
+//  FETCH
+// ═══════════════════════════════════════════
+async function loadData(){
+  document.getElementById('loading').style.display='flex';
+  document.getElementById('data-time').textContent='불러오는 중…';
+  try{
+    const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=RD&tq=select%20*&tqx=out:csv`;
+    const res=await fetch(url,{credentials:'include'});
+    if(!res.ok) throw new Error('fetch fail');
+    const csv=await res.text();
+    processData(parseCSV(csv));
+    S.activeCountries.clear();
+    S.allCountries.forEach(c=>S.activeCountries.add(c));
+    const now=new Date();
+    document.getElementById('data-time').textContent=`${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')} 기준`;
+    document.querySelector('.sdot').style.background='var(--gn)';
+  }catch(e){
+    loadStaticFallback();
+    S.activeCountries.clear();
+    S.allCountries.forEach(c=>S.activeCountries.add(c));
+    document.getElementById('data-time').textContent='캐시 데이터 (로그인 필요)';
+    document.querySelector('.sdot').style.background='var(--yw)';
+  }
+  document.getElementById('loading').style.display='none';
+  buildCountryFilter();
+  ['overview','finance','content','marketing','weekly'].forEach(p=>rebuildPanel(p));
+}
+
+function loadStaticFallback(){
+  const zM=(rev,adC,tot,imp,clk,atr,lik,sav,snT,snF,ord,ref,ou,inf,sh,lo,cf,pc,ms,sl)=>({revenue:rev,adCost:adC,totalCost:tot,impressions:imp,clicks:clk,attrSales:atr,likes:lik,saves:sav,snsTraffic:snT,snsFollower:snF,orderCount:ord,refund:ref,outsourcing:ou,influencer:inf,shipping:sh,logistics:lo,channelFee:cf,productCost:pc,misc:ms,solution:sl});
+  S.dataByCountry={
+    KR:{
+      byMonth:{
+        '1월':zM(7333300,3433827,10800000,270303,5847,3509300,0,0,1724,66,217,41000,600000,2000000,400000,500000,1000000,400000,300000,200000),
+        '2월':zM(3563900,2323289,8500000,154601,3297,2249300,0,0,429,39,99,40000,800000,0,80000,900000,600000,400000,500000,200000),
+        '3월':zM(140000,0,310100,0,0,0,0,0,81,8,6,0,48400,0,0,200867,0,0,61700,0)
+      },
+      snsByPlat:{
+        INSTAGRAM:{'1월':{impressions:79,likes:0,saves:0,snsTraffic:1724,snsFollower:66,count:68},'2월':{impressions:1058,likes:132,saves:0,snsTraffic:429,snsFollower:39,count:68},'3월':{impressions:0,likes:0,saves:0,snsTraffic:81,snsFollower:8,count:29}},
+        'X(트위터)':{'1월':{impressions:19931,likes:132,saves:36,snsTraffic:0,snsFollower:0,count:41},'2월':{impressions:1350,likes:13,saves:0,snsTraffic:0,snsFollower:0,count:2}},
+        TIKTOK:{'1월':{impressions:9324,likes:145,saves:7,snsTraffic:0,snsFollower:0,count:17}},
+        THREAD:{'1월':{impressions:831,likes:20,saves:0,snsTraffic:0,snsFollower:0,count:3}},
+        YOUTUBE:{'2월':{impressions:232,likes:0,saves:0,snsTraffic:0,snsFollower:0,count:2}},
+        WADIZ:{'1월':{impressions:0,likes:0,saves:0,snsTraffic:0,snsFollower:0,count:8},'2월':{impressions:0,likes:0,saves:0,snsTraffic:0,snsFollower:0,count:1}}
+      },
+      adByPlat:{
+        META:{'1월':{adCost:3143798,impressions:277479,clicks:7840,attrSales:543700},'2월':{adCost:2039452,impressions:145758,clicks:4693,attrSales:179400}},
+        WADIZ:{'1월':{adCost:2034758,impressions:62576,clicks:1328,attrSales:2994200},'2월':{adCost:1533085,impressions:92207,clicks:879,attrSales:2184300}},
+        TIKTOK:{'1월':{adCost:3573212,impressions:922926,clicks:39638,attrSales:0},'2월':{adCost:7172451,impressions:1819306,clicks:70127,attrSales:0}}
+      },
+      channelTraffic:{
+        WADIZ:{'1월':{revenue:5770500,orderCount:95,trafficFinal:2627},'2월':{revenue:3033900,orderCount:61,trafficFinal:2223}},
+        '네이버 스스':{'1월':{revenue:1332800,orderCount:111,trafficFinal:5620},'2월':{revenue:500000,orderCount:37,trafficFinal:2223},'3월':{revenue:140000,orderCount:6,trafficFinal:84}},
+        '오프라인 약국':{'1월':{revenue:230000,orderCount:11,trafficFinal:0},'2월':{revenue:30000,orderCount:1,trafficFinal:0}}
+      }
+    },
+    US:{
+      byMonth:{
+        '1월':zM(256590,787246,900000,314357,611,53500,0,0,0,0,8,0,0,0,0,50000,30000,50000,0,0),
+        '2월':zM(754558,2015455,2200000,484267,1038,420293,0,0,0,0,25,0,0,0,0,100000,80000,80000,0,0),
+        '3월':zM(256542,0,200867,0,0,0,0,0,0,0,6,0,0,0,0,200867,0,0,0,0)
+      },
+      snsByPlat:{},
+      adByPlat:{AMAZON:{'1월':{adCost:787246,impressions:314357,clicks:611,attrSales:53500},'2월':{adCost:2015455,impressions:484267,clicks:1038,attrSales:420293}}},
+      channelTraffic:{AMAZON:{'1월':{revenue:256590,orderCount:8,trafficFinal:16673},'2월':{revenue:754558,orderCount:25,trafficFinal:0},'3월':{revenue:256542,orderCount:6,trafficFinal:0}}}
+    },
+    AU:{byMonth:{'1월':zM(0,120000,200000,80000,500,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),'2월':zM(0,150000,250000,100000,600,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{SHOPEEADS:{'1월':{adCost:10411,impressions:1417849,clicks:17,attrSales:0}}},channelTraffic:{}},
+    CA:{byMonth:{'1월':zM(0,50000,80000,30000,200,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{},channelTraffic:{}},
+    MX:{byMonth:{'1월':zM(0,40000,60000,25000,150,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{},channelTraffic:{}},
+    SG:{byMonth:{'1월':zM(0,30000,50000,20000,100,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{},channelTraffic:{}},
+    TW:{byMonth:{'1월':zM(0,25000,40000,15000,80,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{},channelTraffic:{}},
+    WW:{byMonth:{'1월':zM(0,200000,300000,150000,2000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),'2월':zM(0,180000,280000,130000,1800,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{},channelTraffic:{}}
+  };
+  S.allCountries=['KR','US','AU','CA','MX','SG','TW','WW'];
+  S.allCountries.forEach(c=>S.activeCountries.add(c));
+  S.byWeek={
+    'week01 (0101-0104)':{month:'1월',revenue:1402769,orderCount:34,impressions:632451,clicks:6999,adCost:1277775},
+    'week02 (0105-0111)':{month:'1월',revenue:680900,orderCount:29,impressions:698072,clicks:11222,adCost:1766529},
+    'week03 (0112-0118)':{month:'1월',revenue:360000,orderCount:17,impressions:428091,clicks:12219,adCost:2346058},
+    'week04 (0119-0125)':{month:'1월',revenue:3425400,orderCount:90,impressions:593593,clicks:11514,adCost:2242538},
+    'week05 (0126-0201)':{month:'1월',revenue:2145721,orderCount:71,impressions:747410,clicks:8970,adCost:2348266},
+    'week06 (0202-0208)':{month:'2월',revenue:3347390,orderCount:84,impressions:969252,clicks:10857,adCost:4391102},
+    'week07 (0209-0215)':{month:'2월',revenue:500000,orderCount:20,impressions:700000,clicks:30000,adCost:3000000},
+    'week08 (0216-0222)':{month:'2월',revenue:300000,orderCount:15,impressions:600000,clicks:25000,adCost:2800000},
+    'week09 (0223-0301)':{month:'2월',revenue:200000,orderCount:10,impressions:500000,clicks:20000,adCost:2500000}
+  };
+}
+
+
+loadData();
+</script>
+</body>
+</html>
