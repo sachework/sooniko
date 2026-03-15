@@ -171,7 +171,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',-apple-system,s
   <div id="ov-country-breakdown"></div>
   <div class="cg cg2">
     <div class="cc">
-      <div class="cch"><div><div class="cct">📊 월별 매출 vs 비용</div><div class="ccd">매출 · 광고비 · 총비용</div></div>
+      <div class="cch"><div><div class="cct">📊 월별 매출 · 총비용 · 수익률</div><div class="ccd">초록=매출 · 빨강=총비용 · 노란선=수익률%</div></div>
         <div class="cca"><button class="ccb active" onclick="swType('ov-revcost','bar',this)">막대</button><button class="ccb" onclick="swType('ov-revcost','line',this)">라인</button></div>
       </div>
       <div style="position:relative;height:250px"><canvas id="ov-revcost"></canvas></div>
@@ -437,7 +437,7 @@ function processData(rows){
     const week=r[COL.week]?.trim()||'';
     if(!mon) continue;
 
-    const dc=mk(S.dataByCountry,ctr,()=>({byMonth:{},snsByPlat:{},adByPlat:{},channelTraffic:{}}));
+    const dc=mk(S.dataByCountry,ctr,()=>({byMonth:{},snsByPlat:{},adByPlat:{},adByPlatChan:{},channelTraffic:{}}));
 
     // byMonth
     const m=mk(dc.byMonth,mon,zeroM);
@@ -467,6 +467,13 @@ function processData(rows){
       const am=mk(ap,mon,zeroA);
       am.adCost+=adC;am.impressions+=toNum(r[COL.impressions]);
       am.clicks+=toNum(r[COL.clicks]);am.attrSales+=toNum(r[COL.attrSales]);
+      // Also track by platform × sales channel
+      const chanKey=chan||'기타';
+      const apc=mk(dc.adByPlatChan,plat,()=>({}));
+      const apcCh=mk(apc,chanKey,()=>({}));
+      const apcM=mk(apcCh,mon,zeroA);
+      apcM.adCost+=adC;apcM.impressions+=toNum(r[COL.impressions]);
+      apcM.clicks+=toNum(r[COL.clicks]);apcM.attrSales+=toNum(r[COL.attrSales]);
     }
     // Channel traffic
     if(act==='판매채널'&&chan){
@@ -493,7 +500,7 @@ function processData(rows){
 function getActive(){return S.activeCountries.size===0?S.allCountries:[...S.activeCountries];}
 
 function mergeCountries(){
-  const res={byMonth:{},snsByPlat:{},adByPlat:{},channelTraffic:{}};
+  const res={byMonth:{},snsByPlat:{},adByPlat:{},adByPlatChan:{},channelTraffic:{}};
   for(const c of getActive()){
     const d=S.dataByCountry[c];if(!d) continue;
     // byMonth
@@ -516,6 +523,14 @@ function mergeCountries(){
     for(const[ch,mdata] of Object.entries(d.channelTraffic||{})){
       for(const[m,v] of Object.entries(mdata)){
         const dst=mk(mk(res.channelTraffic,ch,()=>({})),m,zeroCT);mergeObj(dst,v);
+      }
+    }
+    // adByPlatChan
+    for(const[p,chandata] of Object.entries(d.adByPlatChan||{})){
+      for(const[ch,mdata] of Object.entries(chandata)){
+        for(const[m,v] of Object.entries(mdata)){
+          const dst=mk(mk(mk(res.adByPlatChan,p,()=>({})),ch,()=>({})),m,zeroA);mergeObj(dst,v);
+        }
       }
     }
   }
@@ -687,18 +702,21 @@ function buildOv(){
             borderRadius:4,stack:'rev'
           }))
         : [
-            {label:'매출',data:months.map(m=>fmtM(byMonth[m]?.revenue||0)),backgroundColor:'rgba(74,222,128,.7)',borderColor:'rgba(74,222,128,1)',borderWidth:1.5,borderRadius:6},
-            {label:'총비용',data:months.map(m=>fmtM(byMonth[m]?.totalCost||0)),backgroundColor:'rgba(248,113,113,.7)',borderColor:'rgba(248,113,113,1)',borderWidth:1.5,borderRadius:6},
-            {label:'순이익',data:months.map(m=>fmtM((byMonth[m]?.revenue||0)-(byMonth[m]?.totalCost||0))),type:'line',borderColor:'rgba(251,191,36,1)',backgroundColor:'rgba(251,191,36,.12)',fill:true,tension:.4,pointRadius:5,borderWidth:2}
+            {label:'매출',data:months.map(m=>fmtM(byMonth[m]?.revenue||0)),backgroundColor:'rgba(74,222,128,.75)',borderColor:'rgba(74,222,128,1)',borderWidth:1.5,borderRadius:6,yAxisID:'y'},
+            {label:'총비용',data:months.map(m=>fmtM(byMonth[m]?.totalCost||0)),backgroundColor:'rgba(248,113,113,.65)',borderColor:'rgba(248,113,113,1)',borderWidth:1.5,borderRadius:6,yAxisID:'y'},
+            {label:'수익률%',data:months.map(m=>{const rv=byMonth[m]?.revenue||0,tc=byMonth[m]?.totalCost||0;return tc>0?Math.round(rv/tc*100):0;}),type:'line',borderColor:'rgba(251,191,36,1)',backgroundColor:'transparent',tension:.4,pointRadius:6,pointBackgroundColor:'rgba(251,191,36,1)',borderWidth:2.5,yAxisID:'y1'}
           ]
     },
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'#e2e8f0'}}},
-      scales:{x:{grid:gr,ticks:tk,stacked:true},y:{grid:gr,ticks:{...tk,callback:v=>v+'만원'},stacked:activeCtrs.length>1}}}
+      plugins:{legend:{labels:{color:'#e2e8f0'}},tooltip:{callbacks:{label:c=>{if(c.dataset.label==='수익률%')return` 수익률: ${c.parsed.y}%`;return` ${c.dataset.label}: ${c.parsed.y}만원`;}}}},
+      scales:{x:{grid:gr,ticks:tk,stacked:activeCtrs.length>1},
+        y:{grid:gr,ticks:{...tk,callback:v=>v+'만원'},position:'left',stacked:activeCtrs.length>1},
+        y1:activeCtrs.length>1?{display:false}:{grid:{display:false},ticks:{...tk,callback:v=>v+'%'},position:'right',min:0}}}
   });
   revCostChart._typeToggle=(type)=>{
     revCostChart.config.type=type;
-    revCostChart.data.datasets.forEach(d=>{delete d.type;if(type==='line'){delete d.stack;}});
+    revCostChart.data.datasets.forEach(d=>{delete d.type;if(type==='line'){delete d.stack;d.yAxisID='y';}});
+    if(revCostChart.data.datasets[2]) revCostChart.data.datasets[2].type='line';
     revCostChart.update();
   };
 
@@ -859,7 +877,7 @@ function toggleCntPlat(p,el){
 //  BUILD MARKETING
 // ═══════════════════════════════════════════
 function buildMkt(){
-  const{adByPlat,channelTraffic,byMonth}=mergeCountries();
+  const{adByPlat,adByPlatChan,channelTraffic,byMonth}=mergeCountries();
   const months=getMonths('marketing',byMonth);
   const platList=Object.keys(adByPlat).filter(p=>S.activeMktPlats.has(p));
 
@@ -911,13 +929,19 @@ function buildMkt(){
     scales:{x:{grid:gr,ticks:tk},y:{grid:gr,ticks:{...tk,callback:v=>fmtN(v)},position:'left'},y1:{grid:{display:false},ticks:{...tk,callback:v=>v.toLocaleString()},position:'right'}}}});
 
   const pb={'META':'b-am','TIKTOK':'b-tk','WADIZ':'b-wz','AMAZON':'b-am','SHOPEEADS':'b-of'};
-  let tbl=`<thead><tr><th>플랫폼</th><th>월</th><th class="tr">광고비</th><th class="tr">노출수</th><th class="tr">클릭수</th><th class="tr">CTR</th><th class="tr">기여판매</th><th class="tr">ROAS</th></tr></thead><tbody>`;
-  Object.entries(adByPlat).forEach(([p,mdata])=>{
-    Object.entries(mdata).sort((a,b)=>MO.indexOf(a[0])-MO.indexOf(b[0])).forEach(([m,d])=>{
-      const ctr=d.impressions>0?(d.clicks/d.impressions*100).toFixed(2)+'%':'-';
-      const r=d.adCost>0?Math.round(d.attrSales/d.adCost*100):0;
+  const chanBadge={'WADIZ':'b-wz','네이버 스스':'b-nv','AMAZON':'b-am','오프라인 약국':'b-of'};
+  let tbl=`<thead><tr><th>플랫폼</th><th>판매채널</th><th class="tr">광고비</th><th class="tr">노출수</th><th class="tr">클릭수</th><th class="tr">CTR</th><th class="tr">기여판매</th><th class="tr">ROAS</th></tr></thead><tbody>`;
+  Object.entries(adByPlatChan).forEach(([p,chandata])=>{
+    Object.entries(chandata).forEach(([ch,mdata])=>{
+      const totAdC=months.reduce((s,m)=>s+(mdata[m]?.adCost||0),0);
+      const totImp=months.reduce((s,m)=>s+(mdata[m]?.impressions||0),0);
+      const totClk=months.reduce((s,m)=>s+(mdata[m]?.clicks||0),0);
+      const totAtr=months.reduce((s,m)=>s+(mdata[m]?.attrSales||0),0);
+      if(totAdC===0&&totImp===0) return;
+      const ctr=totImp>0?(totClk/totImp*100).toFixed(2)+'%':'-';
+      const r=totAdC>0?Math.round(totAtr/totAdC*100):0;
       const rc=r>=100?'rhi':r>=30?'rmd':'rlo';
-      tbl+=`<tr><td><span class="badge ${pb[p]||'b-am'}">${p}</span></td><td>${m}</td><td class="tr">${fmtW(d.adCost)}</td><td class="tr">${fmtN(d.impressions)}</td><td class="tr">${d.clicks.toLocaleString()}</td><td class="tr">${ctr}</td><td class="tr">${d.attrSales>0?fmtW(d.attrSales):'<span style="color:var(--mu)">—</span>'}</td><td class="tr"><span class="roas ${rc}">${r}%</span></td></tr>`;
+      tbl+=`<tr><td><span class="badge ${pb[p]||'b-am'}">${p}</span></td><td><span class="badge ${chanBadge[ch]||'b-us'}">${ch}</span></td><td class="tr">${fmtW(totAdC)}</td><td class="tr">${fmtN(totImp)}</td><td class="tr">${totClk.toLocaleString()}</td><td class="tr">${ctr}</td><td class="tr">${totAtr>0?fmtW(totAtr):'<span style="color:var(--mu)">—</span>'}</td><td class="tr"><span class="roas ${rc}">${r}%</span></td></tr>`;
     });
   });
   document.getElementById('mkt-table').innerHTML=tbl+'</tbody>';
@@ -1124,15 +1148,15 @@ function loadStaticFallback(){
         '1월':zM(204090,3083223,7352071,1908966,27580,28600,0,0,1637,35,6,0,0,0,0,1000000,0,3268848,0,0),
         '2월':zM(319748,5349058,5668459,1008754,804,114400,0,0,0,0,11,0,0,0,0,0,0,319401,0,0),
         '3월':zM(256542,0,237735,0,0,0,0,0,0,0,6,0,0,0,0,200000,0,0,37735,0),
-        '4월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,158400,0,0,0,0),
-        '5월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,158400,0,0,0,0),
-        '6월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,158400,0,0,0,0),
-        '7월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,158400,0,0,0,0),
-        '8월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,158400,0,0,0,0),
-        '9월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,158400,0,0,0,0),
-        '10월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,158400,0,0,0,0),
-        '11월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,158400,0,0,0,0),
-        '12월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,158400,0,0,0,0)
+        '4월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,158400),
+        '5월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,158400),
+        '6월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,158400),
+        '7월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,158400),
+        '8월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,158400),
+        '9월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,158400),
+        '10월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,158400),
+        '11월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,158400),
+        '12월':zM(0,0,158400,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,158400)
       },
       snsByPlat:{
         INSTAGRAM:{'1월':{impressions:0,likes:0,saves:0,snsTraffic:1637,snsFollower:35,count:31}},
