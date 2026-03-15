@@ -155,6 +155,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',-apple-system,s
   <div class="tab" onclick="showTab('content',this)">📱 콘텐츠팀</div>
   <div class="tab" onclick="showTab('marketing',this)">📣 마케팅팀</div>
   <div class="tab" onclick="showTab('weekly',this)">📅 주차별 트렌드</div>
+  <div class="tab" onclick="showTab('channel',this)">🛒 판매채널</div>
 </div>
 
 <!-- ═══ OVERVIEW ═══ -->
@@ -303,6 +304,39 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',-apple-system,s
   </div>
 </div>
 
+<!-- ═══ CHANNEL ═══ -->
+<div id="panel-channel" class="panel">
+  <div class="fbar">
+    <span class="flabel">월</span>
+    <div class="pill on" data-panel="channel" data-month="all" onclick="filterMonth(this)">전체</div>
+    <div class="pill" data-panel="channel" data-month="1월" onclick="filterMonth(this)">1월</div>
+    <div class="pill" data-panel="channel" data-month="2월" onclick="filterMonth(this)">2월</div>
+    <div class="pill" data-panel="channel" data-month="3월" onclick="filterMonth(this)">3월</div>
+    <div class="fsep"></div>
+    <span class="flabel">채널</span>
+    <div id="chan-chips"></div>
+  </div>
+  <div class="kg" id="chan-kpi"></div>
+  <div class="cg cg2">
+    <div class="cc">
+      <div class="cch"><div><div class="cct">🚀 채널별 월간 유입수</div><div class="ccd">월별 방문 트래픽</div></div>
+        <div class="cca"><button class="ccb active" onclick="swType('chan-traffic','bar',this)">막대</button><button class="ccb" onclick="swType('chan-traffic','line',this)">라인</button></div>
+      </div>
+      <div style="position:relative;height:260px"><canvas id="chan-traffic"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="cch"><div><div class="cct">💰 채널별 월간 매출</div><div class="ccd">채널별 판매 금액</div></div>
+        <div class="cca"><button class="ccb active" onclick="swType('chan-rev','bar',this)">막대</button><button class="ccb" onclick="swType('chan-rev','line',this)">라인</button></div>
+      </div>
+      <div style="position:relative;height:260px"><canvas id="chan-rev"></canvas></div>
+    </div>
+  </div>
+  <div class="cg cg2">
+    <div class="cc"><div class="cch"><div><div class="cct">🥧 채널별 매출 비중</div><div class="ccd">선택기간 합산</div></div></div><div style="position:relative;height:230px"><canvas id="chan-pie"></canvas></div></div>
+    <div class="cc"><div class="cch"><div><div class="cct">📋 채널별 성과 상세</div></div></div><table class="tbl" id="chan-table"></table></div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════
 //  CONSTANTS
@@ -340,6 +374,7 @@ const S={
   activeMonths:{overview:'all',finance:'all',content:'all',marketing:'all',weekly:'all'},
   activeContentPlats: new Set(),
   activeMktPlats: new Set(),
+  activeChannels: new Set(),
   charts:{}
 };
 
@@ -534,6 +569,7 @@ function rebuildPanel(p){
   if(p==='content') buildCnt();
   if(p==='marketing') buildMkt();
   if(p==='weekly') buildWk();
+  if(p==='channel') buildChan();
 }
 
 // ═══════════════════════════════════════════
@@ -574,7 +610,7 @@ function toggleCountry(c){
     }
   }
   buildCountryFilter();
-  ['overview','finance','content','marketing','weekly'].forEach(p=>rebuildPanel(p));
+  ['overview','finance','content','marketing','weekly','channel'].forEach(p=>rebuildPanel(p));
 }
 
 
@@ -595,12 +631,17 @@ function buildOv(){
   const months=getMonths('overview',byMonth);
   const rev=sumM(months,byMonth,'revenue'),cost=sumM(months,byMonth,'totalCost'),adC=sumM(months,byMonth,'adCost');
   const imp=sumM(months,byMonth,'impressions'),ord=sumM(months,byMonth,'orderCount'),margin=rev-cost;
+  const attrSales=sumM(months,byMonth,'attrSales');
+  const roas=adC>0?Math.round(attrSales/adC*100):0;
+  const marginRate=rev>0?Math.round(margin/rev*100):0;
 
   document.getElementById('ov-kpi').innerHTML=
     kpi('총 매출',fmtW(rev),'판매채널 합계','','','💵','var(--gn)')+
     kpi('총 비용',fmtW(cost),'전체 비용','','','📉','var(--rd)')+
-    kpi('순이익',fmtW(margin,true),'매출 − 총비용',margin<0?'dn':'up','마진율 '+(cost>0?Math.round(margin/cost*100):0)+'%','⚖️',margin<0?'var(--rd)':'var(--gn)')+
+    kpi('순이익',fmtW(margin,true),'매출 − 총비용',margin<0?'dn':'up','','⚖️',margin<0?'var(--rd)':'var(--gn)')+
+    kpi('마진율',marginRate+'%','순이익 ÷ 매출',marginRate<0?'dn':marginRate>=20?'up':'neu',marginRate>=20?'양호':marginRate>=0?'보통':'적자','📊',marginRate>=20?'var(--gn)':marginRate>=0?'var(--yw)':'var(--rd)')+
     kpi('광고비',fmtW(adC),'VAT 미포함','','','📣','var(--yw)')+
+    kpi('ROAS',roas+'%','기여판매 ÷ 광고비',roas>=100?'up':'dn',roas>=100?'목표달성':'개선필요','🎯',roas>=100?'var(--gn)':'var(--rd)')+
     kpi('총 노출',fmtN(imp),'전 플랫폼','','','👁️','var(--ac)')+
     kpi('총 주문',Math.round(ord)+'건','판매건수','','','🛒','var(--pu)');
 
@@ -611,20 +652,29 @@ function buildOv(){
     const rows=activeCtrs.map(c=>{
       const cm=COUNTRY_META[c]||{flag:'🌍',color:'#6b7280',label:c};
       const cRev=months.reduce((s,m)=>s+(S.dataByCountry[c]?.byMonth[m]?.revenue||0),0);
+      const cCost=months.reduce((s,m)=>s+(S.dataByCountry[c]?.byMonth[m]?.totalCost||0),0);
       const cAd=months.reduce((s,m)=>s+(S.dataByCountry[c]?.byMonth[m]?.adCost||0),0);
+      const cAttr=months.reduce((s,m)=>s+(S.dataByCountry[c]?.byMonth[m]?.attrSales||0),0);
       const cOrd=months.reduce((s,m)=>s+(S.dataByCountry[c]?.byMonth[m]?.orderCount||0),0);
       const cImp=months.reduce((s,m)=>s+(S.dataByCountry[c]?.byMonth[m]?.impressions||0),0);
+      const cMargin=cRev-cCost;
+      const cMR=cRev>0?Math.round(cMargin/cRev*100):0;
+      const cRoas=cAd>0?Math.round(cAttr/cAd*100):0;
+      const mCol=cMR>=20?'var(--gn)':cMR>=0?'var(--yw)':'var(--rd)';
+      const rCol=cRoas>=100?'var(--gn)':cRoas>=30?'var(--yw)':'var(--rd)';
       return`<tr>
         <td><span style="display:inline-flex;align-items:center;gap:5px;font-weight:700;color:${cm.color}">${cm.flag} ${cm.label} (${c})</span></td>
         <td class="tr" style="color:var(--gn);font-weight:600">${fmtW(cRev)}</td>
         <td class="tr">${fmtW(cAd)}</td>
+        <td class="tr" style="color:${mCol};font-weight:600">${fmtW(cMargin,true)} <span style="font-size:10px">(${cMR}%)</span></td>
+        <td class="tr" style="color:${rCol};font-weight:600">${cRoas}%</td>
         <td class="tr">${Math.round(cOrd)}건</td>
         <td class="tr">${fmtN(cImp)}</td>
       </tr>`;
     });
     bd.innerHTML=`<div class="cc" style="margin-bottom:16px">
       <div class="cct" style="margin-bottom:12px">🌍 국가별 요약</div>
-      <table class="tbl"><thead><tr><th>국가</th><th class="tr">매출</th><th class="tr">광고비</th><th class="tr">주문</th><th class="tr">노출</th></tr></thead>
+      <table class="tbl"><thead><tr><th>국가</th><th class="tr">매출</th><th class="tr">광고비</th><th class="tr">마진 (마진율)</th><th class="tr">ROAS</th><th class="tr">주문</th><th class="tr">노출</th></tr></thead>
       <tbody>${rows.join('')}</tbody></table></div>`;
   } else if(bd){bd.innerHTML='';}
 
@@ -934,6 +984,81 @@ function buildWk(){
 }
 
 // ═══════════════════════════════════════════
+//  BUILD CHANNEL
+// ═══════════════════════════════════════════
+function buildChan(){
+  const{channelTraffic}=mergeCountries();
+  const allMonthSet=new Set();
+  Object.values(channelTraffic).forEach(mdata=>Object.keys(mdata).forEach(m=>allMonthSet.add(m)));
+  const fakeByMonth={};[...allMonthSet].forEach(m=>fakeByMonth[m]=1);
+  const months=getMonths('channel',fakeByMonth);
+
+  const allChans=Object.keys(channelTraffic);
+  if(S.activeChannels.size===0) allChans.forEach(c=>S.activeChannels.add(c));
+  const chanList=allChans.filter(c=>S.activeChannels.has(c));
+
+  document.getElementById('chan-chips').innerHTML=allChans.map(c=>{
+    const col=CHAN_COL[c]||'#6c7fff';
+    return`<span class="plat-chip ${S.activeChannels.has(c)?'':'off'}" onclick="toggleChan('${c}',this)"><span class="pdot" style="background:${col}"></span>${c}</span>`;
+  }).join('');
+
+  const totT=chanList.reduce((s,c)=>s+months.reduce((s2,m)=>s2+(channelTraffic[c]?.[m]?.trafficFinal||0),0),0);
+  const totR=chanList.reduce((s,c)=>s+months.reduce((s2,m)=>s2+(channelTraffic[c]?.[m]?.revenue||0),0),0);
+  const totO=chanList.reduce((s,c)=>s+months.reduce((s2,m)=>s2+(channelTraffic[c]?.[m]?.orderCount||0),0),0);
+  const conv=totT>0?(totO/totT*100).toFixed(1):0;
+  const aov=totO>0?Math.round(totR/totO):0;
+  const topC=chanList.reduce((best,c)=>{const r=months.reduce((s,m)=>s+(channelTraffic[c]?.[m]?.revenue||0),0);return r>(best.r||0)?{c,r}:best;},{}).c||'—';
+
+  document.getElementById('chan-kpi').innerHTML=
+    kpi('총 유입수',totT.toLocaleString()+'회','방문자수','','','🚀','var(--ac)')+
+    kpi('총 매출',fmtW(totR),'채널 합산','','','💰','var(--gn)')+
+    kpi('총 주문',Math.round(totO)+'건','판매건수','','','🛒','var(--pu)')+
+    kpi('전환율',conv+'%','주문÷유입',parseFloat(conv)>=3?'up':'dn',parseFloat(conv)>=3?'양호':'개선필요','🎯',parseFloat(conv)>=3?'var(--gn)':'var(--yw)')+
+    kpi('객단가',fmtW(aov),'매출÷주문','','','💳','var(--cy)')+
+    kpi('최고채널',topC,'매출 1위','','','🏆','var(--or)');
+
+  const tChart=mkC('chan-traffic',{type:'bar',data:{labels:months,datasets:chanList.map(c=>({
+    label:c,data:months.map(m=>channelTraffic[c]?.[m]?.trafficFinal||0),
+    backgroundColor:hexToRgba(CHAN_COL[c]||'#6c7fff',.75),borderRadius:4,stack:'t'
+  }))},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#e2e8f0',font:{size:11}}}},
+    scales:{x:{grid:gr,ticks:tk,stacked:true},y:{grid:gr,ticks:{...tk,callback:v=>v.toLocaleString()+'회'},stacked:true}}}});
+  tChart._typeToggle=(type)=>{tChart.config.type=type;tChart.data.datasets.forEach(d=>{if(type==='line'){d.fill=false;d.tension=.4;d.pointRadius=4;delete d.stack;}else{d.stack='t';}});tChart.update();};
+
+  const rChart=mkC('chan-rev',{type:'bar',data:{labels:months,datasets:chanList.map(c=>({
+    label:c,data:months.map(m=>fmtM(channelTraffic[c]?.[m]?.revenue||0)),
+    backgroundColor:hexToRgba(CHAN_COL[c]||'#6c7fff',.75),borderRadius:4,stack:'r'
+  }))},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#e2e8f0',font:{size:11}}}},
+    scales:{x:{grid:gr,ticks:tk,stacked:true},y:{grid:gr,ticks:{...tk,callback:v=>v+'만원'},stacked:true}}}});
+  rChart._typeToggle=(type)=>{rChart.config.type=type;rChart.data.datasets.forEach(d=>{if(type==='line'){d.fill=false;d.tension=.4;d.pointRadius=4;delete d.stack;}else{d.stack='r';}});rChart.update();};
+
+  mkC('chan-pie',{type:'doughnut',data:{labels:chanList,datasets:[{
+    data:chanList.map(c=>fmtM(months.reduce((s,m)=>s+(channelTraffic[c]?.[m]?.revenue||0),0))),
+    backgroundColor:chanList.map(c=>CHAN_COL[c]||'rgba(108,127,255,.8)'),borderWidth:2,borderColor:'#1a1d2e'
+  }]},options:{responsive:true,maintainAspectRatio:false,cutout:'58%',
+    plugins:{legend:{position:'right',labels:{color:'#e2e8f0',font:{size:11},padding:9}},
+    tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed}만원`}}}}});
+
+  const cb={'WADIZ':'b-wz','네이버 스스':'b-nv','AMAZON':'b-am','오프라인 약국':'b-of'};
+  let tbl=`<thead><tr><th>채널</th><th class="tr">유입수</th><th class="tr">매출</th><th class="tr">주문</th><th class="tr">전환율</th><th class="tr">객단가</th></tr></thead><tbody>`;
+  chanList.forEach(c=>{
+    const cT=months.reduce((s,m)=>s+(channelTraffic[c]?.[m]?.trafficFinal||0),0);
+    const cR=months.reduce((s,m)=>s+(channelTraffic[c]?.[m]?.revenue||0),0);
+    const cO=months.reduce((s,m)=>s+(channelTraffic[c]?.[m]?.orderCount||0),0);
+    const cv=cT>0?(cO/cT*100).toFixed(1)+'%':'—';
+    const ao=cO>0?fmtW(Math.round(cR/cO)):'—';
+    tbl+=`<tr><td><span class="badge ${cb[c]||'b-am'}">${c}</span></td><td class="tr">${cT.toLocaleString()}회</td><td class="tr" style="color:var(--gn);font-weight:600">${fmtW(cR)}</td><td class="tr">${Math.round(cO)}건</td><td class="tr">${cv}</td><td class="tr">${ao}</td></tr>`;
+  });
+  document.getElementById('chan-table').innerHTML=tbl+'</tbody>';
+}
+function toggleChan(c,el){
+  if(S.activeChannels.has(c)){if(S.activeChannels.size>1)S.activeChannels.delete(c);}
+  else S.activeChannels.add(c);
+  el.classList.toggle('off');buildChan();
+}
+
+// ═══════════════════════════════════════════
 //  FETCH
 // ═══════════════════════════════════════════
 async function loadData(){
@@ -959,7 +1084,7 @@ async function loadData(){
   }
   document.getElementById('loading').style.display='none';
   buildCountryFilter();
-  ['overview','finance','content','marketing','weekly'].forEach(p=>rebuildPanel(p));
+  ['overview','finance','content','marketing','weekly','channel'].forEach(p=>rebuildPanel(p));
 }
 
 function loadStaticFallback(){
