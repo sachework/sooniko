@@ -435,7 +435,7 @@ function processData(rows){
   for(let i=1;i<rows.length;i++){
     const r=rows[i];
     const act=r[COL.activity]?.trim()||'';
-    const ctr=r[COL.country]?.trim()||'ALL';
+    const ctr=(r[COL.country]?.trim()||'ALL').toUpperCase();
     const mon=r[COL.month]?.trim()||'';
     const plat=r[COL.platform]?.trim()||'';
     const chan=r[COL.salesChannel]?.trim()||'';
@@ -836,50 +836,63 @@ function buildFin(){
 //  BUILD INVENTORY (재고 현황)
 // ═══════════════════════════════════════════
 function buildInventory(){
-  const{inventory}=mergeCountries();
-  const storeList=Object.keys(inventory).sort();
   const el=document.getElementById('fin-inventory');
   if(!el) return;
-  if(storeList.length===0){
-    el.innerHTML='<tbody><tr><td colspan="10" style="text-align:center;color:var(--mu);padding:24px">재고 데이터 없음 (시트의 연계 재고채널, 입고수, 출고수 컬럼 확인)</td></tr></tbody>';
+
+  // 국가 x 보관처 구조로 직접 조회 (mergeCountries 거치면 국가 차원 소실됨)
+  const rows=[];
+  const moSet=new Set();
+  for(const ctr of getActive()){
+    const d=S.dataByCountry[ctr];
+    if(!d?.inventory) continue;
+    for(const [stk,mdata] of Object.entries(d.inventory)){
+      const months={};
+      for(const [m,v] of Object.entries(mdata)){
+        moSet.add(m);
+        months[m]=v;
+      }
+      rows.push({ctr,stk,months});
+    }
+  }
+
+  if(rows.length===0){
+    el.innerHTML='<tbody><tr><td colspan="8" style="text-align:center;color:var(--mu);padding:24px">재고 데이터 없음 — 새로고침으로 시트 데이터 불러오세요</td></tr></tbody>';
     return;
   }
-  // Collect all months that appear in inventory data
-  const moSet=new Set();
-  storeList.forEach(s=>Object.keys(inventory[s]).forEach(m=>moSet.add(m)));
+
   const months=[...moSet].sort((a,b)=>MO.indexOf(a)-MO.indexOf(b));
+  const fmt=n=>{const r=Math.round(n*10)/10;return r===0?'—':r.toLocaleString('ko-KR');};
 
-  let html=`<thead><tr><th>보관처</th>`;
-  months.forEach(m=>{html+=`<th class="tr" colspan="2" style="text-align:center;border-left:1px solid var(--bd)">${m}</th>`;});
-  html+=`<th class="tr" style="border-left:1px solid var(--bd)">총 입고</th><th class="tr">총 출고</th><th class="tr">재고 잔량</th></tr>`;
-  html+=`<tr><th></th>`;
-  months.forEach(()=>{html+=`<th class="tr" style="font-size:10px;color:var(--gn);border-left:1px solid var(--bd)">입고</th><th class="tr" style="font-size:10px;color:var(--rd)">출고</th>`;});
-  html+=`<th></th><th></th><th></th></tr></thead><tbody>`;
+  // 헤더
+  let html=`<thead><tr><th>국가</th><th>보관처</th>`;
+  months.forEach(m=>html+=`<th class="tr" colspan="3" style="text-align:center;border-left:1px solid var(--bd)">${m}</th>`);
+  html+=`<th class="tr" style="border-left:2px solid var(--bd)">총 잔량</th></tr>`;
+  html+=`<tr><th></th><th></th>`;
+  months.forEach(()=>html+=`<th class="tr" style="font-size:10px;color:var(--gn);border-left:1px solid var(--bd)">입고</th><th class="tr" style="font-size:10px;color:var(--rd)">출고</th><th class="tr" style="font-size:10px;color:var(--mu)">잔량</th>`);
+  html+=`<th></th></tr></thead><tbody>`;
 
-  let grandIn=0,grandOut=0;
-  storeList.forEach(stk=>{
-    const mdata=inventory[stk];
-    const totIn=months.reduce((s,m)=>s+(mdata[m]?.inbound||0),0);
-    const totOut=months.reduce((s,m)=>s+(mdata[m]?.outbound||0),0);
-    const remain=totIn-totOut;
-    const remCol=remain>0?'var(--gn)':remain<0?'var(--rd)':'var(--mu)';
-    grandIn+=totIn;grandOut+=totOut;
-    html+=`<tr><td style="font-weight:600">${stk}</td>`;
+  // 국가 → 보관처 순 정렬
+  rows.sort((a,b)=>a.ctr.localeCompare(b.ctr)||a.stk.localeCompare(b.stk));
+
+  rows.forEach(({ctr,stk,months:mdata})=>{
+    const cm=COUNTRY_META[ctr]||{flag:'🌍',color:'#6b7280',label:ctr};
+    let totIn=0,totOut=0;
+    html+=`<tr><td><span style="color:${cm.color};font-weight:700">${cm.flag} ${cm.label}</span></td><td style="font-weight:600">${stk}</td>`;
     months.forEach(m=>{
-      const inb=mdata[m]?.inbound||0,outb=mdata[m]?.outbound||0;
-      html+=`<td class="tr" style="border-left:1px solid var(--bd);color:var(--gn)">${inb>0?inb.toLocaleString():'—'}</td><td class="tr" style="color:var(--rd)">${outb>0?outb.toLocaleString():'—'}</td>`;
+      const inb=mdata[m]?.inbound||0;
+      const outb=mdata[m]?.outbound||0; // 음수값
+      const net=Math.round((inb+outb)*10)/10;
+      totIn+=inb; totOut+=outb;
+      const nc=net>0?'var(--gn)':net<0?'var(--rd)':'var(--mu)';
+      html+=`<td class="tr" style="border-left:1px solid var(--bd);color:var(--gn)">${fmt(inb)}</td>`;
+      html+=`<td class="tr" style="color:var(--rd)">${outb!==0?fmt(Math.abs(outb)):'—'}</td>`;
+      html+=`<td class="tr" style="color:${nc}">${fmt(net)}</td>`;
     });
-    html+=`<td class="tr" style="border-left:1px solid var(--bd);color:var(--gn);font-weight:600">${totIn.toLocaleString()}</td><td class="tr" style="color:var(--rd);font-weight:600">${totOut.toLocaleString()}</td><td class="tr" style="color:${remCol};font-weight:700">${remain.toLocaleString()}</td></tr>`;
+    const remain=Math.round((totIn+totOut)*10)/10;
+    const rc=remain>0?'var(--gn)':remain<0?'var(--rd)':'var(--mu)';
+    html+=`<td class="tr" style="border-left:2px solid var(--bd);color:${rc};font-weight:700;font-size:13px">${fmt(remain)}</td></tr>`;
   });
-  const grandRemain=grandIn-grandOut;
-  const gCol=grandRemain>0?'var(--gn)':grandRemain<0?'var(--rd)':'var(--mu)';
-  html+=`<tr style="font-weight:800;border-top:2px solid var(--bd)"><td>📊 합계</td>`;
-  months.forEach(m=>{
-    const inSum=storeList.reduce((s,stk)=>s+(inventory[stk][m]?.inbound||0),0);
-    const outSum=storeList.reduce((s,stk)=>s+(inventory[stk][m]?.outbound||0),0);
-    html+=`<td class="tr" style="border-left:1px solid var(--bd);color:var(--gn)">${inSum>0?inSum.toLocaleString():'—'}</td><td class="tr" style="color:var(--rd)">${outSum>0?outSum.toLocaleString():'—'}</td>`;
-  });
-  html+=`<td class="tr" style="border-left:1px solid var(--bd);color:var(--gn)">${grandIn.toLocaleString()}</td><td class="tr" style="color:var(--rd)">${grandOut.toLocaleString()}</td><td class="tr" style="color:${gCol}">${grandRemain.toLocaleString()}</td></tr></tbody>`;
+  html+=`</tbody>`;
   el.innerHTML=html;
 }
 
@@ -1290,7 +1303,7 @@ function _loadHardcodedFallback(){
         }
       },
       channelTraffic:{AMAZON:{'1월':{revenue:204090,orderCount:6,trafficFinal:16079},'2월':{revenue:319748,orderCount:11,trafficFinal:0},'3월':{revenue:256542,orderCount:6,trafficFinal:0}}},
-      byWeek:{},inventory:{}
+      byWeek:{'week01 (0101-0104)':{month:'1월',revenue:54769,orderCount:1,impressions:459834,clicks:5177,adCost:420177},'week02 (0105-0111)':{month:'1월',revenue:85800,orderCount:3,impressions:506412,clicks:7004,adCost:825982},'week03 (0112-0118)':{month:'1월',revenue:0,orderCount:0,impressions:166533,clicks:6736,adCost:776233},'week04 (0119-0125)':{month:'1월',revenue:0,orderCount:0,impressions:396840,clicks:6312,adCost:708808},'week05 (0126-0201)':{month:'1월',revenue:63521,orderCount:2,impressions:377773,clicks:2745,adCost:380637},'week06 (0202-0208)':{month:'2월',revenue:85900,orderCount:3,impressions:137849,clicks:2328,adCost:200314},'week07 (0209-0215)':{month:'2월',revenue:28600,orderCount:1,impressions:366170,clicks:2566,adCost:1156913},'week08 (0216-0222)':{month:'2월',revenue:171600,orderCount:6,impressions:496887,clicks:8552,adCost:3963216},'week09 (0223-0301)':{month:'2월',revenue:76405,orderCount:2,impressions:490,clicks:0,adCost:0},'week10 (0302-0308)':{month:'3월',revenue:128271,orderCount:3,impressions:0,clicks:0,adCost:0},'week11 (0309-0315)':{month:'3월',revenue:92650,orderCount:2,impressions:0,clicks:0,adCost:0}},inventory:{}
     },
     AU:{
       byMonth:{
@@ -1309,13 +1322,13 @@ function _loadHardcodedFallback(){
         TIKTOK:{AMAZON:{'1월':{adCost:1668882,impressions:444392,clicks:14569,attrSales:0},'2월':{adCost:2092462,impressions:900145,clicks:52925,attrSales:0}}}
       },
       channelTraffic:{AMAZON:{'1월':{revenue:0,orderCount:0,trafficFinal:441},'2월':{revenue:434810,orderCount:14,trafficFinal:0}}},
-      byWeek:{},inventory:{}
+      byWeek:{'week01 (0101-0104)':{month:'1월',revenue:0,orderCount:0,impressions:125112,clicks:385,adCost:334343},'week02 (0105-0111)':{month:'1월',revenue:0,orderCount:0,impressions:131446,clicks:2831,adCost:504342},'week03 (0112-0118)':{month:'1월',revenue:0,orderCount:0,impressions:134013,clicks:3799,adCost:634696},'week04 (0119-0125)':{month:'1월',revenue:0,orderCount:0,impressions:132495,clicks:4229,adCost:616488},'week05 (0126-0201)':{month:'1월',revenue:144500,orderCount:6,impressions:313169,clicks:5513,adCost:1130647},'week06 (0202-0208)':{month:'2월',revenue:206990,orderCount:5,impressions:710325,clicks:6606,adCost:2366495},'week07 (0209-0215)':{month:'2월',revenue:23990,orderCount:1,impressions:148827,clicks:1229,adCost:603332},'week08 (0216-0222)':{month:'2월',revenue:59330,orderCount:2,impressions:460970,clicks:46089,adCost:1268538}},inventory:{}
     },
-    CA:{byMonth:{'1월':zM(52500,108873,145459,75928,0,0,0,0,0,0,2,0,0,0,0,0,0,36586,0,0),'2월':zM(0,10219,10219,985,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{AMAZON:{'1월':{adCost:108873,impressions:75928,clicks:164,attrSales:53500},'2월':{adCost:10219,impressions:985,clicks:58,attrSales:0}}},adByPlatChan:{AMAZON:{AMAZON:{'1월':{adCost:108873,impressions:75928,clicks:164,attrSales:53500},'2월':{adCost:10219,impressions:985,clicks:58,attrSales:0}}}},channelTraffic:{AMAZON:{'1월':{revenue:52500,orderCount:2,trafficFinal:153}}},byWeek:{},inventory:{}},
-    MX:{byMonth:{'1월':zM(0,558,16916,326,0,0,0,0,0,0,0,0,0,0,0,0,0,16358,0,0),'2월':zM(0,0,0,200,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),'3월':zM(0,0,0,118,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{SHOPEEADS:{'1월':{adCost:558,impressions:326,clicks:1,attrSales:0},'2월':{adCost:0,impressions:200,clicks:0,attrSales:0},'3월':{adCost:0,impressions:118,clicks:0,attrSales:0}}},adByPlatChan:{SHOPEEADS:{SHOPEE:{'1월':{adCost:558,impressions:326,clicks:1,attrSales:0},'2월':{adCost:0,impressions:200,clicks:0,attrSales:0},'3월':{adCost:0,impressions:118,clicks:0,attrSales:0}}}},channelTraffic:{},byWeek:{},inventory:{}},
-    SG:{byMonth:{'1월':zM(0,9853,9853,3716,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),'2월':zM(0,78579,78579,4853,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{SHOPEEADS:{'1월':{adCost:9853,impressions:3716,clicks:16,attrSales:0},'2월':{adCost:78579,impressions:4853,clicks:28,attrSales:0}}},adByPlatChan:{SHOPEEADS:{SHOPEE:{'1월':{adCost:9853,impressions:3716,clicks:16,attrSales:0},'2월':{adCost:78579,impressions:4853,clicks:28,attrSales:0}}}},channelTraffic:{},byWeek:{},inventory:{}},
-    TW:{byMonth:{'2월':zM(0,244473,244473,34603,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{META:{'2월':{adCost:244473,impressions:34603,clicks:521,attrSales:0}}},adByPlatChan:{META:{SHOPEE:{'2월':{adCost:244473,impressions:34603,clicks:521,attrSales:0}}}},channelTraffic:{},byWeek:{},inventory:{}},
-    WW:{byMonth:{'2월':zM(0,287616,287616,122652,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{TIKTOK:{'2월':{adCost:287616,impressions:122652,clicks:4166,attrSales:0}}},adByPlatChan:{TIKTOK:{'자사몰':{'2월':{adCost:287616,impressions:122652,clicks:4166,attrSales:0}}}},channelTraffic:{},byWeek:{},inventory:{}}
+    CA:{byMonth:{'1월':zM(52500,108873,145459,75928,0,0,0,0,0,0,2,0,0,0,0,0,0,36586,0,0),'2월':zM(0,10219,10219,985,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{AMAZON:{'1월':{adCost:108873,impressions:75928,clicks:164,attrSales:53500},'2월':{adCost:10219,impressions:985,clicks:58,attrSales:0}}},adByPlatChan:{AMAZON:{AMAZON:{'1월':{adCost:108873,impressions:75928,clicks:164,attrSales:53500},'2월':{adCost:10219,impressions:985,clicks:58,attrSales:0}}}},channelTraffic:{AMAZON:{'1월':{revenue:52500,orderCount:2,trafficFinal:153}}},byWeek:{'week01 (0101-0104)':{month:'1월',revenue:0,orderCount:0,impressions:0,clicks:0,adCost:0},'week02 (0105-0111)':{month:'1월',revenue:0,orderCount:0,impressions:7475,clicks:20,adCost:14798},'week03 (0112-0118)':{month:'1월',revenue:0,orderCount:0,impressions:35335,clicks:70,adCost:17366},'week04 (0119-0125)':{month:'1월',revenue:52500,orderCount:2,impressions:11923,clicks:28,adCost:0},'week05 (0126-0201)':{month:'1월',revenue:0,orderCount:0,impressions:21939,clicks:74,adCost:86927},'week06 (0202-0208)':{month:'2월',revenue:0,orderCount:0,impressions:241,clicks:30,adCost:0}},inventory:{}},
+    MX:{byMonth:{'1월':zM(0,558,16916,326,0,0,0,0,0,0,0,0,0,0,0,0,0,16358,0,0),'2월':zM(0,0,0,200,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),'3월':zM(0,0,0,118,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{SHOPEEADS:{'1월':{adCost:558,impressions:326,clicks:1,attrSales:0},'2월':{adCost:0,impressions:200,clicks:0,attrSales:0},'3월':{adCost:0,impressions:118,clicks:0,attrSales:0}}},adByPlatChan:{SHOPEEADS:{SHOPEE:{'1월':{adCost:558,impressions:326,clicks:1,attrSales:0},'2월':{adCost:0,impressions:200,clicks:0,attrSales:0},'3월':{adCost:0,impressions:118,clicks:0,attrSales:0}}}},channelTraffic:{},byWeek:{'week01 (0101-0104)':{month:'1월',revenue:0,orderCount:0,impressions:17,clicks:0,adCost:0},'week02 (0105-0111)':{month:'1월',revenue:0,orderCount:0,impressions:52,clicks:0,adCost:0},'week03 (0112-0118)':{month:'1월',revenue:0,orderCount:0,impressions:73,clicks:0,adCost:0},'week04 (0119-0125)':{month:'1월',revenue:0,orderCount:0,impressions:110,clicks:1,adCost:558},'week05 (0126-0201)':{month:'1월',revenue:0,orderCount:0,impressions:88,clicks:0,adCost:0},'week06 (0202-0208)':{month:'2월',revenue:0,orderCount:0,impressions:59,clicks:0,adCost:0},'week07 (0209-0215)':{month:'2월',revenue:0,orderCount:0,impressions:48,clicks:0,adCost:0},'week08 (0216-0222)':{month:'2월',revenue:0,orderCount:0,impressions:38,clicks:0,adCost:0},'week09 (0223-0301)':{month:'2월',revenue:0,orderCount:0,impressions:64,clicks:0,adCost:0},'week10 (0302-0308)':{month:'3월',revenue:0,orderCount:0,impressions:74,clicks:0,adCost:0},'week11 (0309-0315)':{month:'3월',revenue:0,orderCount:0,impressions:48,clicks:0,adCost:0}},inventory:{}},
+    SG:{byMonth:{'1월':zM(0,9853,9853,3716,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),'2월':zM(0,78579,78579,4853,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{SHOPEEADS:{'1월':{adCost:9853,impressions:3716,clicks:16,attrSales:0},'2월':{adCost:78579,impressions:4853,clicks:28,attrSales:0}}},adByPlatChan:{SHOPEEADS:{SHOPEE:{'1월':{adCost:9853,impressions:3716,clicks:16,attrSales:0},'2월':{adCost:78579,impressions:4853,clicks:28,attrSales:0}}}},channelTraffic:{},byWeek:{'week01 (0101-0104)':{month:'1월',revenue:0,orderCount:0,impressions:649,clicks:3,adCost:2274},'week02 (0105-0111)':{month:'1월',revenue:0,orderCount:0,impressions:812,clicks:4,adCost:501},'week03 (0112-0118)':{month:'1월',revenue:0,orderCount:0,impressions:833,clicks:3,adCost:701},'week04 (0119-0125)':{month:'1월',revenue:0,orderCount:0,impressions:833,clicks:1,adCost:2417},'week05 (0126-0201)':{month:'1월',revenue:0,orderCount:0,impressions:388,clicks:5,adCost:3960},'week06 (0202-0208)':{month:'2월',revenue:0,orderCount:0,impressions:1120,clicks:6,adCost:10742},'week07 (0202-0208)':{month:'2월',revenue:0,orderCount:0,impressions:906,clicks:6,adCost:19519},'week08 (0216-0222)':{month:'2월',revenue:0,orderCount:0,impressions:1127,clicks:7,adCost:15695},'week09 (0223-0301)':{month:'2월',revenue:0,orderCount:0,impressions:305,clicks:5,adCost:6120}},inventory:{}},
+    TW:{byMonth:{'2월':zM(0,244473,244473,34603,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{META:{'2월':{adCost:244473,impressions:34603,clicks:521,attrSales:0}}},adByPlatChan:{META:{SHOPEE:{'2월':{adCost:244473,impressions:34603,clicks:521,attrSales:0}}}},channelTraffic:{},byWeek:{'week08 (0216-0222)':{month:'2월',revenue:0,orderCount:0,impressions:34603,clicks:521,adCost:244473}},inventory:{}},
+    WW:{byMonth:{'2월':zM(0,287616,287616,122652,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)},snsByPlat:{},adByPlat:{TIKTOK:{'2월':{adCost:287616,impressions:122652,clicks:4166,attrSales:0}}},adByPlatChan:{TIKTOK:{'자사몰':{'2월':{adCost:287616,impressions:122652,clicks:4166,attrSales:0}}}},channelTraffic:{},byWeek:{'week07 (0209-0215)':{month:'2월',revenue:0,orderCount:0,impressions:84990,clicks:1989,adCost:143086},'week08 (0216-0222)':{month:'2월',revenue:0,orderCount:0,impressions:37662,clicks:2177,adCost:144530}},inventory:{}}
   };
   S.allCountries=['KR','US','AU','CA','MX','SG','TW','WW'];
   S.allCountries.forEach(c=>S.activeCountries.add(c));
